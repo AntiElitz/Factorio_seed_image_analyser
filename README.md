@@ -8,4 +8,5 @@ Requieres the installation of the following packages:
 -cv2
 -PIL
 -numpy
+-tqdm
 

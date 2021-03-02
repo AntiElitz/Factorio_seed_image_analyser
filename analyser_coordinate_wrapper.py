@@ -40,12 +40,6 @@ class OrePatchCoordinateWrapper:
     def __le__(self, other):
         return self.size <= other.size
 
-    def __eq__(self, other):
-        return self.size == other.size
-
-    def __ne__(self, other):
-        return self.size != other.size
-
     def __gt__(self, other):
         return self.size > other.size
 

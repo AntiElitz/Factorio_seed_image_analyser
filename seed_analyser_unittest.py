@@ -32,6 +32,7 @@ class SeedAnalyserUnittest(unittest.TestCase):
             manager.analyse()
 
     def test_ore_patch_size(self):
+        # TODO: how can i make the autocomplete for analyser work here? incorrect typing?
         for i in range(0, 5):
             with self.subTest(i=i):
                 expected_results = [3328, 3264, 4096, 7104, 5056]

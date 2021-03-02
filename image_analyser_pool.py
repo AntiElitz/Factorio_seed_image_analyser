@@ -2,11 +2,12 @@ import glob
 import concurrent.futures
 from typing import Callable
 
+from tqdm import tqdm
 import csv
 import analyser
 import analyser_coordinate_wrapper
 
-MULTIPROCESS = False  # False is useful to analyse the performance in the profiler
+MULTIPROCESS = False  # False is useful to debug and analyse the performance in the profiler
 
 
 def _analyse(tasks: tuple[Callable[[analyser_coordinate_wrapper.MapAnalyserCoordinateWrapper], list[str]],
@@ -40,7 +41,9 @@ class ImageAnalyserPool:
     def analyse(self):
         if MULTIPROCESS:
             with concurrent.futures.ProcessPoolExecutor(max_workers=self._max_workers) as executor:
-                # executor.map(_analyse, self._tasks)
+                # TODO: Why doesn't this work for the progress bar?
+                # self._tasks_results_futures = list(tqdm(executor.map(_analyse, self._tasks), total=len(self._tasks)))
+
                 self._tasks_results_futures = executor.map(_analyse, self._tasks)
         else:
             for task in self._tasks:

@@ -21,17 +21,20 @@ class OrePatch:
             self, side_length_of_pixel_in_tiles)
 
     def display(self) -> None:  # This will open the image in your default image viewer.
+        """This will open the image of the ore patch in your default image viewer. Very slow. Use for debug only"""
         Image.fromarray(self.resource_array * 255, 'L').show()
 
     @property
     def contour(self):
         if self._contour is None:  # lazy initialization
+            """A 2d array that contains various points that define the contour of the ore patch"""
             contours = cv2.findContours(self.resource_array, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
             self._contour = np.reshape(contours[0][0], (contours[0][0].shape[0], contours[0][0].shape[2]))
         return self._contour
 
     @property
     def center_point(self):
+        """Return the weighted center of an ore patch in a pixel point"""
         if self._center_point is None:  # lazy initialization
             moments = cv2.moments(self.resource_array)
             self._center_point = ((moments["m10"] / moments["m00"]), (moments["m01"] / moments["m00"]))
@@ -54,6 +57,7 @@ def _create_all_combined_ore_patches(image: np.ndarray,
                                      resource_colors: dict[str, tuple[int, int, int]],
                                      side_length_of_pixel_in_tiles: int,
                                      ) -> dict[str, OrePatch]:
+    """Filters the original image by each defined resource-colors and creates a patch from it"""
     ore_patch_combined = {}
     all_resource_array = np.zeros((image.shape[0], image.shape[1]), dtype=np.uint8)
     for resource_type in resource_colors.keys():
@@ -71,6 +75,7 @@ def _find_all_ore_patches(ore_patch_combined: dict[str, OrePatch],
                           resource_types: list[str],
                           side_length_of_pixel_in_tiles: int
                           ) -> dict[str, list[OrePatch]]:
+    """separates ore patches combined by resource type into individual ore patches"""
     ore_patches = {"all": []}
     for resource_type in resource_types:
         ore_patches[resource_type] = []
@@ -99,16 +104,19 @@ class MapAnalyser:
 
     def count_resources_in_region(self, start_x: int, start_y: int, end_x: int, end_y: int,
                                   resource_type: str) -> int:
+        """Return the amount of a given resource in the specified region in pixel"""
         return np.sum(self.ore_patch_combined[resource_type].resource_array[start_y:end_y, start_x:end_x])
 
     @staticmethod
     def calculate_min_distance_between_patches(ore_patch: OrePatch, other_ore_patch: OrePatch) -> float:
+        """Return the distance between two ore patches in pixel"""
         return MapAnalyser._calculate_min_distance_between_contours(ore_patch.contour, other_ore_patch.contour)
 
     @staticmethod
     def calculate_min_distance_between_patches_within_region(ore_patch: OrePatch, other_ore_patch: OrePatch,
                                                              start_x: int, start_y: int, end_x: int, end_y: int
                                                              ) -> float:
+        """Return the distance between two ore patches in pixel within the specified region"""
         contours_within_region = []
         for patch in (ore_patch, other_ore_patch):
             # remove points in contour that are not in range, tough so read, but performant

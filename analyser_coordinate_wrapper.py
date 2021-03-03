@@ -139,6 +139,7 @@ class MapAnalyserCoordinateWrapper:
 
     def calculate_min_distance_between_patches(self, ore_patch: OrePatchCoordinateWrapper,
                                                other_ore_patch: OrePatchCoordinateWrapper) -> float:
+        """Return the distance between two ore patches in Factorio tiles"""
         # TODO: wrapped_ore_patch being public is probably a result of poor software design. How to make it private?
         # call parent and convert distance in pixels to Factorio tiles
         return analyser.MapAnalyser.calculate_min_distance_between_patches(
@@ -148,6 +149,9 @@ class MapAnalyserCoordinateWrapper:
                                                              other_ore_patch: OrePatchCoordinateWrapper,
                                                              start_x: int, start_y: int, end_x: int, end_y: int
                                                              ) -> float:
+        """Return the distance between two ore patches in Factorio tiles within the specified region
+        This can be useful when very large patches have several points close to each other, but
+        one is only interested in the closest point within the starting area."""
         # convert Factorio coordinates to pixel - make region larger, if inputs don't align
         (start_x_px, start_y_px, end_x_px, end_y_px) = self._coordinate_region_to_pixel_region((start_x, start_y,
                                                                                                 end_x, end_y))
@@ -157,6 +161,7 @@ class MapAnalyserCoordinateWrapper:
         ) * self._side_length_of_pixel_in_tiles
 
     def _coordinate_to_pixel(self, point: tuple[int, int], round_up: bool = False) -> tuple[int, int]:
+        """Converts Factorio coordinates to an image point in pixel"""
         if round_up:
             point = (  # This takes advantage of negative int rounding: 3 // 2 = 1, but -(-3 // 2) = 2
                 -((-point[0] + self.min_x) // self._side_length_of_pixel_in_tiles),
@@ -170,6 +175,7 @@ class MapAnalyserCoordinateWrapper:
         return point
 
     def _coordinate_region_to_pixel_region(self, point: tuple[int, int, int, int]) -> tuple[int, int, int, int]:
+        """Converts a region of Factorio coordinates to a region of image points in pixel"""
         side_length_of_pixel_in_tiles = self._side_length_of_pixel_in_tiles  # cheaper referencing
         point = (
             # round start down

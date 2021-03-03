@@ -14,7 +14,7 @@ def my_analyser_function(analyser: MapAnalyserCoordinateWrapper) -> list[str]:
     map_seed = analyser.map_seed
     resource_types = analyser.resource_types
     if PRINTS:
-        print("This is the map seed'" + str(map_seed) + "', it contains the following resource types: "
+        print("This is the map seed' " + str(map_seed) + "'. It contains the following resource types: "
               + str(resource_types) + ".")
 
     # example on how to get the amount of "coal" in a specific region
@@ -33,10 +33,10 @@ def my_analyser_function(analyser: MapAnalyserCoordinateWrapper) -> list[str]:
     if PRINTS:
         print("The largest '" + str(largest_ore_patch_resource_type)
               + "' patch contains " + str(largest_ore_patch_size_in_tiles)
-              + " tiles" + " at the coordinate " + str(largest_ore_patch_center_point))
+              + " tiles and is located at " + str(largest_ore_patch_center_point))
 
     # example on how to get the minimum distance between 2 ore patches
-    ore_patch = analyser.ore_patches["all"][0]
+    ore_patch = analyser.ore_patches["all"][0]  # the key "all" contains the patches of each key
     other_ore_patch = analyser.ore_patches["all"][1]
     distance = analyser.calculate_min_distance_between_patches(ore_patch, other_ore_patch)
     if PRINTS:
@@ -52,13 +52,18 @@ def my_analyser_function(analyser: MapAnalyserCoordinateWrapper) -> list[str]:
         print("The minimum distance between these 2 ore patches within the region "
               + str((start_x, start_y, end_x, end_y)) + " is " + str(distance) + " tiles.")
 
+    # example on how to plot any ore patch for debugging
+    ore_patch = analyser.ore_patch_combined["water"]  # This is all water combined in one virtual patch
+    if PRINTS:
+        ore_patch.display()
+
     # example on how to get the coal patch closest to water in the starting area
-    ore_patches = analyser.ore_patches["coal"]
-    other_ore_patch = analyser.ore_patch_combined["water"]  # This is all water combined in one virtual patch
+    coal_patches = analyser.ore_patches["coal"]
+    water_patch = analyser.ore_patch_combined["water"]  # This is all water combined in one virtual patch
     min_distance = float('inf')
     closest_ore_patch = None
-    for ore_patch in ore_patches:
-        distance = analyser.calculate_min_distance_between_patches(ore_patch, other_ore_patch)
+    for ore_patch in coal_patches:
+        distance = analyser.calculate_min_distance_between_patches(ore_patch, water_patch)
         if distance < min_distance:
             min_distance = distance
             closest_ore_patch = ore_patch
@@ -68,21 +73,24 @@ def my_analyser_function(analyser: MapAnalyserCoordinateWrapper) -> list[str]:
         else:
             print(
                 "The coal that is closest to water is located at " + str(closest_ore_patch.center_point)
-                + " and is " + str(min_distance) + " is tiles away from water.")
+                + " and is " + str(min_distance)
+                + " tiles away from water. However we don't have information on what water patch this is.")
 
-    # example on how to get the coal patch closest to water in the starting area
-    ore_patches = analyser.ore_patches["coal"]
-    other_ore_patches = analyser.ore_patches["water"]
+    # example on how to get the coal patch closest to water in the starting area and not loose any information
+    coal_patches = analyser.ore_patches["coal"]
+    water_patches = analyser.ore_patches["water"]
     start_x, start_y, end_x, end_y = -128, -128, 128, 128
     min_distance = float('inf')
     closest_ore_patch = None
-    for ore_patch in ore_patches:
-        for other_ore_patch in other_ore_patches:
+    closest_water_patch = None
+    for ore_patch in coal_patches:
+        for other_ore_patch in water_patches:
             distance = analyser.calculate_min_distance_between_patches_within_region(
                 ore_patch, other_ore_patch, start_x, start_y, end_x, end_y)
             if distance < min_distance:
                 min_distance = distance
                 closest_ore_patch = ore_patch
+                closest_water_patch = other_ore_patch
     if PRINTS:
         if closest_ore_patch is None:
             print("There is either no coal or no water in the area.")
@@ -90,13 +98,19 @@ def my_analyser_function(analyser: MapAnalyserCoordinateWrapper) -> list[str]:
             print(
                 "The coal in the area " + str((start_x, start_y, end_x, end_y))
                 + " that is closest to water is located at " + str(closest_ore_patch.center_point)
-                + " and " + str(min_distance) + " is tiles away from water.")
+                + " and is " + str(min_distance) + " tiles away from the water located at "
+                + str(closest_water_patch.center_point) + ".")
 
-    return [str(analyser.map_seed), str(analyser.min_x)]
+    # this is what goes into the resulting .csv file row. Return None to discard the map.
+    if largest_ore_patch.size > 2500:
+        return [str(analyser.map_seed), str(analyser.min_x), str(largest_ore_patch.size)]
+    else:
+        return None
 
 
 if __name__ == '__main__':
-    resource_colors = {
+    """This is where you define what you want to analyse"""
+    resource_colors = {  # Colors in RGB
         "iron": (104, 132, 146),
         "copper": (203, 97, 53),
         "coal": (0, 0, 0),

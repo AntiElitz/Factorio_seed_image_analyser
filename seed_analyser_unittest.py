@@ -204,6 +204,19 @@ class SeedAnalyserUnittest(unittest.TestCase):
                                                                                                )
                 self.assertEqual(round(result, 2), expected_result)
 
+    def test_find_longest_consecutive_line_of_resources(self):
+        for i in range(0, 5):
+            with self.subTest(i=i):
+                expected_results = [(72, (-168, -264, -160, -192)),
+                                    (88, (120, -272, 136, -184)),
+                                    (112, (360, -320, 384, -208)),
+                                    (120, (-32, 232, 88, 264)),
+                                    (136, (-80, 56, 56, 96))]
+                self.assertEqual(
+                    self.analyser[i].find_longest_consecutive_line_of_resources(self.resource_type_with_all[i],
+                                                                                8 * (i + 1), 256 * i),
+                    expected_results[i])
+
 
 resource_type_with_all = ["iron", "copper", "coal", "water", "all"]
 

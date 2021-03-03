@@ -1,13 +1,16 @@
+from typing import Optional
+
 import image_analyser_pool
 from analyser_coordinate_wrapper import MapAnalyserCoordinateWrapper
 
 PRINTS = True
+PLOTS = False
 
 
-def my_analyser_function(analyser: MapAnalyserCoordinateWrapper) -> list[str]:
+def my_analyser_function(analyser: MapAnalyserCoordinateWrapper) -> Optional[list[str]]:
     """Your code to analyse an individual map code goes here
 
-    below are some examples of how to archive some basics
+    Below are some examples of how to archive some basics
     """
 
     # example on how to get the map seed and the resources available for analysing
@@ -54,7 +57,7 @@ def my_analyser_function(analyser: MapAnalyserCoordinateWrapper) -> list[str]:
 
     # example on how to plot any ore patch for debugging
     ore_patch = analyser.ore_patch_combined["water"]  # This is all water combined in one virtual patch
-    if PRINTS:
+    if PLOTS:
         ore_patch.display()
 
     # example on how to get the coal patch closest to water in the starting area
@@ -100,6 +103,14 @@ def my_analyser_function(analyser: MapAnalyserCoordinateWrapper) -> list[str]:
                 + " that is closest to water is located at " + str(closest_ore_patch.center_point)
                 + " and is " + str(min_distance) + " tiles away from the water located at "
                 + str(closest_water_patch.center_point) + ".")
+
+    # TODO: add example for second starting area
+
+    # TODO: proper example for find_longest_consecutive_line_of_resources
+    # testing stuff
+        max_length, region = analyser.find_longest_consecutive_line_of_resources("iron", 8, 256)
+        print(max_length)
+        print(region)
 
     # this is what goes into the resulting .csv file row. Return None to discard the map.
     if largest_ore_patch.size > 2500:

@@ -107,6 +107,46 @@ class MapAnalyser:
         """Return the amount of a given resource in the specified region in pixel"""
         return np.sum(self.ore_patch_combined[resource_type].resource_array[start_y:end_y, start_x:end_x])
 
+    def find_longest_consecutive_line_of_resources(self, resource_type: str, thickness: int, tolerance: int,
+                                                   init_start_x: int, init_start_y: int,
+                                                   init_end_x: int, init_end_y: int
+                                                   ) -> tuple[int, tuple[int, int, int, int]]:
+        """Return the largest region of consecutive resources regarding a set width and its length in pixel"""
+
+        # TODO: comments
+        max_x = init_end_x
+        max_y = init_end_y
+        max_length = 0
+        max_region = None
+        resource_array = self.ore_patch_combined[resource_type].resource_array
+        # vertical
+        for start_x in range(init_start_x, max_x - thickness + 1):
+            end_x = start_x + thickness
+            start_y = init_start_y
+            end_y = start_y + (max_length + 1)
+            while end_y <= max_y:
+                if np.sum(resource_array[start_y:end_y, start_x:end_x]) >= thickness * (max_length + 1) - tolerance:
+                    max_length += 1
+                    max_region = (start_x, start_y, end_x, end_y)
+                else:
+                    start_y += 1
+                end_y = start_y + (max_length + 1)
+        # horizontal
+        for start_y in range(init_start_y, max_y - thickness + 1):
+            end_y = start_y + thickness
+            start_x = init_start_x
+            end_x = start_x + (1 + max_length)
+            while end_x <= max_x:
+                if np.sum(resource_array[start_y:end_y, start_x:end_x]) >= thickness * (max_length + 1) - tolerance:
+                    max_length = max_length + 1
+                    max_region = (start_x, start_y, end_x, end_y)
+                else:
+                    start_x += 1
+                end_x = start_x + (max_length + 1)
+
+        # TODO vertical implementation
+        return max_length, max_region
+
     @staticmethod
     def calculate_min_distance_between_patches(ore_patch: OrePatch, other_ore_patch: OrePatch) -> float:
         """Return the distance between two ore patches in pixel"""

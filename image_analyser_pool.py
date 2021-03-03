@@ -1,6 +1,6 @@
 import glob
 import concurrent.futures
-from typing import Callable
+from typing import Callable, Optional
 
 from tqdm import tqdm
 import csv
@@ -11,7 +11,7 @@ MULTIPROCESS = False  # False is useful to debug and analyse the performance in 
 
 
 def _analyse(tasks: tuple[Callable[[analyser_coordinate_wrapper.MapAnalyserCoordinateWrapper], list[str]],
-                          str, dict[str, tuple[int, int, int]], int]) -> list[str]:
+                          str, dict[str, tuple[int, int, int]], int]) -> Optional[list[str]]:
     """Creates an analyser for the maps and calls the callback function with the wrapped analyser
     This is where the multiprocessing starts. Return the result of the analysing function
     """

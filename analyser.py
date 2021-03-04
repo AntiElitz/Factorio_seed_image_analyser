@@ -112,39 +112,38 @@ class MapAnalyser:
                                                    init_end_x: int, init_end_y: int
                                                    ) -> tuple[int, tuple[int, int, int, int]]:
         """Return the largest region of consecutive resources regarding a set width and its length in pixel"""
-
-        # TODO: comments
         max_x = init_end_x
         max_y = init_end_y
         max_length = 0
         max_region = None
         resource_array = self.ore_patch_combined[resource_type].resource_array
-        # vertical
+        # approach is a sliding window of static thickness/width and dynamically increasing max length
+        # vertical window
         for start_x in range(init_start_x, max_x - thickness + 1):
             end_x = start_x + thickness
             start_y = init_start_y
-            end_y = start_y + (max_length + 1)
+            end_y = start_y + (max_length + 1)  # new length must be one tiles larger than the currently largest one
             while end_y <= max_y:
+                # count resources in region (start_x, start_y, end_x, end_y) and check if amount is within tolerance
                 if np.sum(resource_array[start_y:end_y, start_x:end_x]) >= thickness * (max_length + 1) - tolerance:
-                    max_length += 1
+                    max_length += 1  # new length must be one tiles larger than the currently largest one
                     max_region = (start_x, start_y, end_x, end_y)
                 else:
                     start_y += 1
-                end_y = start_y + (max_length + 1)
-        # horizontal
+                end_y += 1  # This is equal to "end_y = start_y + (max_length + 1)"
+        # horizontal window
         for start_y in range(init_start_y, max_y - thickness + 1):
             end_y = start_y + thickness
             start_x = init_start_x
-            end_x = start_x + (1 + max_length)
+            end_x = start_x + (1 + max_length)  # new length must be one tiles larger than the currently largest one
             while end_x <= max_x:
+                # count resources in region (start_x, start_y, end_x, end_y) and check if amount is within tolerance
                 if np.sum(resource_array[start_y:end_y, start_x:end_x]) >= thickness * (max_length + 1) - tolerance:
-                    max_length = max_length + 1
+                    max_length = max_length + 1  # new length must be one tiles larger than the currently largest one
                     max_region = (start_x, start_y, end_x, end_y)
                 else:
                     start_x += 1
-                end_x = start_x + (max_length + 1)
-
-        # TODO vertical implementation
+                end_x += 1  # This is equal to "end_x = start_x + (max_length + 1)"
         return max_length, max_region
 
     @staticmethod

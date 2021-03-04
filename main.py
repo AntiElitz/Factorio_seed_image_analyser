@@ -17,15 +17,45 @@ def my_analyser_function(analyser: MapAnalyserCoordinateWrapper) -> Optional[lis
     map_seed = analyser.map_seed
     resource_types = analyser.resource_types
     if PRINTS:
-        print("This is the map seed' " + str(map_seed) + "'. It contains the following resource types: "
+        print("This is the map seed " + str(map_seed) + ". It contains the following resource types: "
               + str(resource_types) + ".")
 
     # example on how to get the amount of "coal" in a specific region
     (start_x, start_y, end_x, end_y) = analyser.min_x, analyser.min_y, analyser.max_x, analyser.max_y
     size_in_tiles = analyser.count_resources_in_region(start_x, start_y, end_x, end_y, "coal")
     if PRINTS:
-        print("There are " + str(size_in_tiles) + " 'coal' tiles in the region " + str(
+        print("There are " + str(size_in_tiles) + " coal tiles in the region " + str(
             (start_x, start_y, end_x, end_y)) + ".")
+
+    # example on how to find a second starting area
+    window_width = 128
+    second_starting_area_region = None
+    starting_area_width_to_ignore = 128
+    is_second_region_found = False
+    # use sliding window to count resources
+    for start_x in range(analyser.min_x, analyser.max_x - window_width + 1, 8):
+        end_x = start_x + window_width
+        if is_second_region_found:
+            break
+        for start_y in range(analyser.min_y, analyser.max_y - window_width + 1, 8):
+            end_y = start_y + window_width
+            if (not (-(starting_area_width_to_ignore / 2) < start_x < (starting_area_width_to_ignore / 2)
+                     or -(starting_area_width_to_ignore / 2) < start_y < (starting_area_width_to_ignore / 2)
+                     or -(starting_area_width_to_ignore / 2) < end_x < (starting_area_width_to_ignore / 2)
+                     or -(starting_area_width_to_ignore / 2) < end_y < (starting_area_width_to_ignore / 2))):
+                # window is not partially in starting area
+                if (analyser.count_resources_in_region(start_x, start_y, end_x, end_y, "iron") > 1024
+                        and analyser.count_resources_in_region(start_x, start_y, end_x, end_y, "copper") > 1024
+                        and analyser.count_resources_in_region(start_x, start_y, end_x, end_y, "coal") > 1024):
+                    # minimum resource requirements are met -> starting area found
+                    second_starting_area_region = (start_x, start_y, end_x, end_y)
+                    is_second_region_found = True
+                    break
+    if PRINTS:
+        if second_starting_area_region is None:
+            print("There is no second starting area")
+        else:
+            print("There is a second starting area located at " + str(second_starting_area_region) + ".")
 
     # example on how to get the largest iron patch and it's size, type and center point
     ore_patches = analyser.ore_patches["iron"]
@@ -34,9 +64,9 @@ def my_analyser_function(analyser: MapAnalyserCoordinateWrapper) -> Optional[lis
     largest_ore_patch_resource_type = largest_ore_patch.resource_type
     largest_ore_patch_center_point = largest_ore_patch.center_point
     if PRINTS:
-        print("The largest '" + str(largest_ore_patch_resource_type)
-              + "' patch contains " + str(largest_ore_patch_size_in_tiles)
-              + " tiles and is located at " + str(largest_ore_patch_center_point))
+        print("The largest " + str(largest_ore_patch_resource_type)
+              + " patch contains " + str(largest_ore_patch_size_in_tiles)
+              + " tiles and is located at " + str(largest_ore_patch_center_point) + ".")
 
     # example on how to get the minimum distance between 2 ore patches
     ore_patch = analyser.ore_patches["all"][0]  # the key "all" contains the patches of each key
@@ -104,13 +134,11 @@ def my_analyser_function(analyser: MapAnalyserCoordinateWrapper) -> Optional[lis
                 + " and is " + str(min_distance) + " tiles away from the water located at "
                 + str(closest_water_patch.center_point) + ".")
 
-    # TODO: add example for second starting area
-
-    # TODO: proper example for find_longest_consecutive_line_of_resources
-    # testing stuff
-        max_length, region = analyser.find_longest_consecutive_line_of_resources("iron", 8, 256)
-        print(max_length)
-        print(region)
+        # example on how to find the largest resource area of a given width
+        max_length, region = analyser.find_longest_consecutive_line_of_resources("iron", 16, 256)
+        if PRINTS:
+            print("The largest area of iron that is 16 tiles wide is " + str(max_length)
+                  + " tiles long and located at " + str(region) + ". It may contain up to 256 other tiles.")
 
     # this is what goes into the resulting .csv file row. Return None to discard the map.
     if largest_ore_patch.size > 2500:

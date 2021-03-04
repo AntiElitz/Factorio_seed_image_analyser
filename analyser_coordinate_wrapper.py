@@ -82,7 +82,7 @@ class MapAnalyserCoordinateWrapper:
 
     @property
     def ore_patch_combined(self) -> dict[str, OrePatchCoordinateWrapper]:
-        """Return a Dictionary containing each resource type as a single combined patch
+        """Return a dictionary containing each resource type as a single combined patch
         example usages:
         my_map_analyser.ore_patch_combined['coal']  # return all coal in only one patch as if it was a single one
         """
@@ -136,8 +136,9 @@ class MapAnalyserCoordinateWrapper:
                                                                        resource_type)
         return self._side_length_of_pixel_in_tiles_sq * area_px
 
-    def get_ore_patches_partially_in_region(self, start_x: int, start_y: int, end_x: int, end_y: int
+    def get_ore_patches_partially_in_region(self, start_x: int, start_y: int, end_x: int, end_y: int,
                                             ) -> dict[str, list[OrePatchCoordinateWrapper]]:
+        """Return a dictionary containing lists of patches that are partially in a region for each resource type"""
         # convert Factorio coordinates to pixel - makes region larger, if inputs don't align
         start_x_px, start_y_px, end_x_px, end_y_px = self._coordinate_region_to_pixel_region(start_x, start_y,
                                                                                              end_x, end_y)

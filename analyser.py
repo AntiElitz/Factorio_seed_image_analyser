@@ -122,6 +122,7 @@ class MapAnalyser:
                                                    init_end_x: int, init_end_y: int
                                                    ) -> tuple[int, tuple[int, int, int, int]]:
         """Return the largest region of consecutive resources regarding a set width and its length in pixel"""
+        # TODO: this is extremely slow - need a different approach here, there is probably sth. in cv2
         max_x = init_end_x
         max_y = init_end_y
         max_length = 0
@@ -136,7 +137,7 @@ class MapAnalyser:
             while end_y <= max_y:
                 # count resources in region (start_x, start_y, end_x, end_y) and check if amount is within tolerance
                 if np.sum(resource_array[start_y:end_y, start_x:end_x]) >= thickness * (max_length + 1) - tolerance:
-                    max_length += 1  # new length must be one tiles larger than the currently largest one
+                    max_length += 1  # new length must be one tile larger than the currently largest one
                     max_region = (start_x, start_y, end_x, end_y)
                 else:
                     start_y += 1
@@ -145,7 +146,7 @@ class MapAnalyser:
         for start_y in range(init_start_y, max_y - thickness + 1):
             end_y = start_y + thickness
             start_x = init_start_x
-            end_x = start_x + (1 + max_length)  # new length must be one tiles larger than the currently largest one
+            end_x = start_x + (1 + max_length)  # new length must be one tile larger than the currently largest one
             while end_x <= max_x:
                 # count resources in region (start_x, start_y, end_x, end_y) and check if amount is within tolerance
                 if np.sum(resource_array[start_y:end_y, start_x:end_x]) >= thickness * (max_length + 1) - tolerance:
@@ -166,6 +167,10 @@ class MapAnalyser:
                                                              start_x: int, start_y: int, end_x: int, end_y: int
                                                              ) -> float:
         """Return the distance between two ore patches in pixel within the specified region"""
+        if not (np.sum(ore_patch.resource_array[start_y:end_y, start_x:end_x])
+                and np.sum(other_ore_patch.resource_array[start_y:end_y, start_x:end_x])):
+            # TODO: check if np.amax or x.max() are faster than np.sum
+            return float('inf')  # fast return if any list of contour points is empty after filtering
         contours_within_region = []
         for patch in (ore_patch, other_ore_patch):
             # remove points in contour that are not in range, tough so read, but performant
@@ -180,8 +185,8 @@ class MapAnalyser:
             # so we use a logical and to combine the array and than duplicate it, so x and y get the same bool value
             condition = np.array([np.logical_and(contour_x + 1, contour_y + 1), ] * 2).transpose()
             contour_within_region = np.ndarray.reshape(patch.contour[condition], (-1, 2))  # filter array by condition
-            if not contour_within_region.size:
-                return float('inf')  # fast return if any list of contour points is empty after filtering
+            # # if not contour_within_region.size:
+            # #     return float('inf')  # fast return if any list of contour points is empty after filtering
             contours_within_region.append(contour_within_region)
         return MapAnalyser._calculate_min_distance_between_contours(contours_within_region[0],
                                                                     contours_within_region[1])

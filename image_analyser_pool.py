@@ -15,6 +15,7 @@ def _analyse(tasks: tuple[Callable[[analyser_coordinate_wrapper.MapAnalyserCoord
     """Creates an analyser for the maps and calls the callback function with the wrapped analyser
     This is where the multiprocessing starts. Return the result of the analysing function
     """
+    # TODO: Putting all parameters in a single tuple seems dirty, specifically since 3 of the parameters are the same
     callback_analyser_function = tasks[0]
     image_path = tasks[1]
     resource_colors = tasks[2]

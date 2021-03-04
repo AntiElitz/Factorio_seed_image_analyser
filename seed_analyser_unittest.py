@@ -217,6 +217,18 @@ class SeedAnalyserUnittest(unittest.TestCase):
                                                                                 8 * (i + 1), 256 * i),
                     expected_results[i])
 
+    def test_get_ore_patches_partially_in_region(self):
+        for i in range(0, 5):
+            with self.subTest(i=i):
+                expected_results = [[2368, 2112],
+                                    [1024, 1536],
+                                    [3072],
+                                    [2176],
+                                    [2240, 960, 2880, 1728, 2560, 1536, 1280, 1344]]
+                ore_patches = self.analyser[i].get_ore_patches_partially_in_region(
+                        -64, -64, 64, 64)[self.resource_type_with_all[i]]
+                self.assertEqual([elem.size for elem in ore_patches], expected_results[i])
+
 
 resource_type_with_all = ["iron", "copper", "coal", "water", "all"]
 

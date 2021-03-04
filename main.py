@@ -3,12 +3,12 @@ from typing import Optional
 import image_analyser_pool
 from analyser_coordinate_wrapper import MapAnalyserCoordinateWrapper
 
-PRINTS = True
+PRINTS = False
 PLOTS = False
 
 
 def my_analyser_function(analyser: MapAnalyserCoordinateWrapper) -> Optional[list[str]]:
-    """Your code to analyse an individual map code goes here
+    """Your code to analyse an individual map goes here
 
     Below are some examples of how to archive some basics
     """
@@ -33,7 +33,7 @@ def my_analyser_function(analyser: MapAnalyserCoordinateWrapper) -> Optional[lis
     starting_area_width_to_ignore = 128
     is_second_region_found = False
     # use sliding window to count resources
-    for start_x in range(analyser.min_x, analyser.max_x - window_width + 1, 8):
+    for start_x in range(analyser.min_x, analyser.max_x - window_width + 1, 16):
         end_x = start_x + window_width
         if is_second_region_found:
             break
@@ -68,6 +68,19 @@ def my_analyser_function(analyser: MapAnalyserCoordinateWrapper) -> Optional[lis
               + " patch contains " + str(largest_ore_patch_size_in_tiles)
               + " tiles and is located at " + str(largest_ore_patch_center_point) + ".")
 
+    # example on how to get a list of ore patches partially in a specific region
+    start_x, start_y, end_x, end_y = -64, -64, 64, 64
+    filtered_ore_patches_dict = analyser.get_ore_patches_partially_in_region(start_x, start_y, end_x, end_y)
+    iron_ore_patches = filtered_ore_patches_dict["iron"]
+    if PRINTS:
+        print("The center points of the iron ore patches partially in the region " + str((start_x, start_y, end_x, end_y))
+              + " are " + str([elem.center_point for elem in iron_ore_patches]) + ".")
+
+    # example on how to plot any ore patch for debugging
+    ore_patch = analyser.ore_patch_combined["water"]  # This is all water combined in one virtual patch
+    if PLOTS:
+        ore_patch.display()
+
     # example on how to get the minimum distance between 2 ore patches
     ore_patch = analyser.ore_patches["all"][0]  # the key "all" contains the patches of each key
     other_ore_patch = analyser.ore_patches["all"][1]
@@ -84,11 +97,6 @@ def my_analyser_function(analyser: MapAnalyserCoordinateWrapper) -> Optional[lis
     if PRINTS:
         print("The minimum distance between these 2 ore patches within the region "
               + str((start_x, start_y, end_x, end_y)) + " is " + str(distance) + " tiles.")
-
-    # example on how to plot any ore patch for debugging
-    ore_patch = analyser.ore_patch_combined["water"]  # This is all water combined in one virtual patch
-    if PLOTS:
-        ore_patch.display()
 
     # example on how to get the coal patch closest to water in the starting area
     coal_patches = analyser.ore_patches["coal"]
@@ -155,7 +163,7 @@ if __name__ == '__main__':
         "coal": (0, 0, 0),
         "water": (51, 83, 95)
     }
-    folder_path = "images1"
+    folder_path = "images1000"
     file_extension = ".png"
 
     manager = image_analyser_pool.ImageAnalyserPool(None)

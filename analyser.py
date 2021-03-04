@@ -102,6 +102,16 @@ class MapAnalyser:
         self.map_analyser_coordinate_wrapper = analyser_coordinate_wrapper.MapAnalyserCoordinateWrapper(
             self, side_length_of_pixel_in_tiles)
 
+    def get_ore_patches_partially_in_region(self, start_x: int, start_y: int, end_x: int, end_y: int):
+        filtered_ore_patches = dict.fromkeys(self.ore_patches.keys())
+        # TODO: exclude "all"
+        for key in self.ore_patches.keys():
+            filtered_ore_patches[key] = []
+            for ore_patch in self.ore_patches[key]:
+                if np.sum(ore_patch.resource_array[start_y:end_y, start_x:end_x]):
+                    filtered_ore_patches[key].append(ore_patch)
+        return filtered_ore_patches
+
     def count_resources_in_region(self, start_x: int, start_y: int, end_x: int, end_y: int,
                                   resource_type: str) -> int:
         """Return the amount of a given resource in the specified region in pixel"""

@@ -21,18 +21,18 @@ class SeedAnalyserUnittest(unittest.TestCase):
                 "iron": (104, 132, 146),
                 "copper": (203, 97, 53),
                 "coal": (0, 0, 0),
-                "water": (51, 83, 95)
+                "water": (51, 83, 95),
             }
             folder_path = "unittest_images/" + str(i)
             file_extension = ".png"
+            tiles_pre_pixel = 8
 
+            # TODO: disable tqdm output
             manager = image_analyser_pool.ImageAnalyserPool(None)
-            manager.add_folder_of_images_to_analyse(folder_path, file_extension, self.my_analyser_func,
-                                                    resource_colors, 8)
-            manager.analyse()
+            manager.add_folder_of_images_to_analyse(folder_path, file_extension, resource_colors, tiles_pre_pixel)
+            manager.analyse(self.my_analyser_func, False, True)
 
     def test_ore_patch_size(self):
-        # TODO: how can I make the autocomplete for analyser[i] work here? incorrect typing?
         for i in range(0, 5):
             with self.subTest(i=i):
                 expected_results = [3328, 3264, 4096, 7104, 5056]
@@ -51,8 +51,13 @@ class SeedAnalyserUnittest(unittest.TestCase):
     def test_center_point(self):
         for i in range(0, 5):
             with self.subTest(i=i):
-                expected_results = [(-167.23, -233.23), (125.65, -223.53),
-                                    (289.38, -211.62), (28.61, 251.39), (101.67, 129.11)]
+                expected_results = [
+                    (-167.23, -233.23),
+                    (125.65, -223.53),
+                    (289.38, -211.62),
+                    (28.61, 251.39),
+                    (101.67, 129.11),
+                ]
                 ore_patches = self.analyser[i].ore_patches[self.resource_type_with_all[i]]
                 largest_ore_patch = max(ore_patches)
                 center = round(largest_ore_patch.center_point[0], 2), round(largest_ore_patch.center_point[1], 2)
@@ -61,7 +66,7 @@ class SeedAnalyserUnittest(unittest.TestCase):
     def test_analyser_map_seed(self):
         for i in range(0, 5):
             with self.subTest(i=i):
-                expected_results = [1021, 1811, 4417, 5147, 7585]
+                expected_results = ["1021", "1811", "4417", "5147", "7585"]
                 self.assertEqual(self.analyser[i].map_seed, expected_results[i])
 
     def test_analyser_resource_types(self):
@@ -112,34 +117,34 @@ class SeedAnalyserUnittest(unittest.TestCase):
         for i in range(0, 5):
             with self.subTest(i=i):
                 expected_results = [21696, 18432, 21312, 12160, 45248]
-                self.assertEqual(self.analyser[i].count_resources_in_region(self.analyser[i].min_x,
-                                                                            self.analyser[i].min_y,
-                                                                            self.analyser[i].max_x,
-                                                                            self.analyser[i].max_y,
-                                                                            self.resource_type_with_all[i]),
-                                 expected_results[i])
+                self.assertEqual(
+                    self.analyser[i].count_resources_in_region(
+                        self.analyser[i].min_x,
+                        self.analyser[i].min_y,
+                        self.analyser[i].max_x,
+                        self.analyser[i].max_y,
+                        self.resource_type_with_all[i],
+                    ),
+                    expected_results[i],
+                )
 
     def test_count_resources_in_region_2(self):
         for i in range(0, 5):
             with self.subTest(i=i):
                 expected_results = [1216, 704, 128, 0, 2112]
-                self.assertEqual(self.analyser[i].count_resources_in_region(-96,
-                                                                            -40,
-                                                                            -16,
-                                                                            40,
-                                                                            self.resource_type_with_all[i]),
-                                 expected_results[i])
+                self.assertEqual(
+                    self.analyser[i].count_resources_in_region(-96, -40, -16, 40, self.resource_type_with_all[i]),
+                    expected_results[i],
+                )
 
     def test_count_resources_in_region_3(self):
         for i in range(0, 5):
             with self.subTest(i=i):
                 expected_results = [1216, 704, 128, 0, 2112]
-                self.assertEqual(self.analyser[i].count_resources_in_region(-90,
-                                                                            -33,
-                                                                            -22,
-                                                                            33,
-                                                                            self.resource_type_with_all[i]),
-                                 expected_results[i])
+                self.assertEqual(
+                    self.analyser[i].count_resources_in_region(-90, -33, -22, 33, self.resource_type_with_all[i]),
+                    expected_results[i],
+                )
 
     def test_calculate_min_distance_between_patches(self):
         for i in range(0, 5):
@@ -195,42 +200,46 @@ class SeedAnalyserUnittest(unittest.TestCase):
                     if elem.size == 2560:
                         patch2 = elem
                         break
-                result = self.analyser[i].calculate_min_distance_between_patches_within_region(patch1,
-                                                                                               patch2,
-                                                                                               self.analyser[i].min_x,
-                                                                                               self.analyser[i].min_y,
-                                                                                               self.analyser[i].max_x,
-                                                                                               -30
-                                                                                               )
+                result = self.analyser[i].calculate_min_distance_between_patches_within_region(
+                    patch1, patch2, self.analyser[i].min_x, self.analyser[i].min_y, self.analyser[i].max_x, -30
+                )
                 self.assertEqual(round(result, 2), expected_result)
 
     def test_find_longest_consecutive_line_of_resources(self):
         for i in range(0, 5):
             with self.subTest(i=i):
-                expected_results = [(72, (-168, -264, -160, -192)),
-                                    (88, (120, -272, 136, -184)),
-                                    (112, (360, -320, 384, -208)),
-                                    (120, (-32, 232, 88, 264)),
-                                    (136, (-80, 56, 56, 96))]
+                expected_results = [
+                    (72, (-168, -264, -160, -192)),
+                    (88, (120, -272, 136, -184)),
+                    (112, (360, -320, 384, -208)),
+                    (120, (-32, 232, 88, 264)),
+                    (136, (-80, 56, 56, 96)),
+                ]
                 self.assertEqual(
-                    self.analyser[i].find_longest_consecutive_line_of_resources(self.resource_type_with_all[i],
-                                                                                8 * (i + 1), 256 * i),
-                    expected_results[i])
+                    self.analyser[i].find_longest_consecutive_line_of_resources(
+                        self.resource_type_with_all[i], 8 * (i + 1), 256 * i
+                    ),
+                    expected_results[i],
+                )
 
     def test_get_ore_patches_partially_in_region(self):
         for i in range(0, 5):
             with self.subTest(i=i):
-                expected_results = [[2368, 2112],
-                                    [1024, 1536],
-                                    [3072],
-                                    [2176],
-                                    [2240, 960, 2880, 1728, 2560, 1536, 1280, 1344]]
-                ore_patches = self.analyser[i].get_ore_patches_partially_in_region(
-                        -64, -64, 64, 64)[self.resource_type_with_all[i]]
+                expected_results = [
+                    [2368, 2112],
+                    [1024, 1536],
+                    [3072],
+                    [2176],
+                    [2240, 960, 2880, 1728, 2560, 1536, 1280, 1344],
+                ]
+                ore_patches = self.analyser[i].get_ore_patches_partially_in_region(-64, -64, 64, 64)[
+                    self.resource_type_with_all[i]
+                ]
                 self.assertEqual([elem.size for elem in ore_patches], expected_results[i])
+
 
 
 resource_type_with_all = ["iron", "copper", "coal", "water", "all"]
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

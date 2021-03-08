@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from typing import Optional
 
 import numpy as np
 from PIL import Image
@@ -11,18 +12,153 @@ import analyser_coordinate_wrapper
 
 
 class OrePatch:
-    def __init__(self, resource_array: np.ndarray, resource_type: str, side_length_of_pixel_in_tiles: int):
+    class Region:
+        def __init__(
+            self,
+            start_x: int,
+            start_y: int,
+            end_x: int,
+            end_y: int,
+            tiles_per_pixel: int,
+            min_x_in_tiles: int,
+            min_y_in_tiles: int,
+            is_factorio_coordinate: bool = True,
+        ):
+            self._tiles_per_pixel = tiles_per_pixel
+            self._min_x_in_tiles = min_x_in_tiles
+            self._min_y_in_tiles = min_y_in_tiles
+            if is_factorio_coordinate:
+                self.start_x = start_x
+                self.start_y = start_y
+                self.end_x = end_x
+                self.end_y = end_y
+            else:
+                self.start_x_in_px = start_x
+                self.start_y_in_px = start_y
+                self.end_x_in_px = end_x
+                self.end_y_in_px = end_y
+
+        @property
+        def start_x(self) -> int:
+            return self._start_x
+
+        @start_x.setter
+        def start_x(self, value: int):
+            self._start_x = value
+            print((value - self._min_x_in_tiles) // self._tiles_per_pixel)
+            self._start_x_in_px = (value - self._min_x_in_tiles) // self._tiles_per_pixel  # round start down
+
+        @property
+        def start_y(self) -> int:
+            return self._start_y
+
+        @start_y.setter
+        def start_y(self, value: int):
+            self._start_y = value
+            self._start_y_in_px = (value - self._min_y_in_tiles) // self._tiles_per_pixel  # round start down
+
+        @property
+        def end_x(self) -> int:
+            return self._end_x
+
+        @end_x.setter
+        def end_x(self, value: int):
+            self._end_x = value
+            # This takes advantage of negative int rounding: 3 // 2 = 1, but -(-3 // 2) = 2
+            self._end_x_in_px = -((-value + self._min_x_in_tiles) // self._tiles_per_pixel)  # round end up
+
+        @property
+        def end_y(self) -> int:
+            return self._end_y
+
+        @end_y.setter
+        def end_y(self, value: int):
+            self._end_y = value
+            # This takes advantage of negative int rounding: 3 // 2 = 1, but -(-3 // 2) = 2
+            self._end_y_in_px = -((-value + self._min_y_in_tiles) // self._tiles_per_pixel)  # round end up
+
+        @property
+        def start_x_in_px(self) -> int:
+            return self._start_x_in_px
+
+        @start_x_in_px.setter
+        def start_x_in_px(self, value: int):
+            self._start_x_in_px = value
+            self._start_x = value * self._tiles_per_pixel + self._min_x_in_tiles  # round start down
+
+        @property
+        def start_y_in_px(self) -> int:
+            return self._start_y_in_px
+
+        @start_y_in_px.setter
+        def start_y_in_px(self, value: int):
+            self._start_y_in_px = value
+            self._start_y = value * self._tiles_per_pixel + self._min_y_in_tiles  # round start down
+
+        @property
+        def end_x_in_px(self) -> int:
+            return self._end_x_in_px
+
+        @end_x_in_px.setter
+        def end_x_in_px(self, value: int):
+            self._end_x_in_px = value
+            # This takes advantage of negative int rounding: 3 // 2 = 1, but -(-3 // 2) = 2
+            self._end_x = value * self._tiles_per_pixel + self._min_x_in_tiles  # round end up
+
+        @property
+        def end_y_in_px(self) -> int:
+            return self._end_y_in_px
+
+        @end_y_in_px.setter
+        def end_y_in_px(self, value: int):
+            self._end_y_in_px = value
+            # This takes advantage of negative int rounding: 3 // 2 = 1, but -(-3 // 2) = 2
+            self._end_y = value * self._tiles_per_pixel + self._min_y_in_tiles  # round end up
+
+        @property
+        def region_tuple(self) -> tuple[int, int, int, int]:
+            return self.start_x, self.start_y, self.end_x, self.end_y
+
+        @region_tuple.setter
+        def region_tuple(self, value: tuple[int, int, int, int]):
+            self.start_x = value[0]
+            self.start_y = value[1]
+            self.end_x = value[2]
+            self.end_y = value[3]
+
+        @property
+        def region_tuple_in_px(self) -> tuple[int, int, int, int]:
+            return self.start_x, self.start_y, self.end_x, self.end_y
+
+        @region_tuple_in_px.setter
+        def region_tuple_in_px(self, value: tuple[int, int, int, int]):
+            self.start_x_in_px = value[0]
+            self.start_y_in_px = value[1]
+            self.end_x_in_px = value[2]
+            self.end_y_in_px = value[3]
+
+        def __eq__(self, other):
+            return self.region_tuple_in_px == other.region_tuple_in_px
+
+        def __ne__(self, other):
+            return self.region_tuple_in_px != other.region_tuple_in_px
+
+        def __getitem__(self, index):
+            return self.region_tuple[index]
+
+    # end of class Region ----------------------------------------------------------------------------------------------
+
+    def __init__(self, resource_array: np.ndarray, resource_type: str, tiles_per_pixel: int):
         self.resource_array = resource_array
         self.resource_type = resource_type
         self.size = np.sum(self.resource_array)
         self._contour = None  # lazy initialization (costly operation that will be done just in time in the getter)
         self._center_point = None  # lazy initialization (costly operation that will be done just in time in the getter)
-        self.ore_patch_coordinate_wrapper = analyser_coordinate_wrapper.OrePatchCoordinateWrapper(
-            self, side_length_of_pixel_in_tiles)
+        self.ore_patch_coordinate_wrapper = analyser_coordinate_wrapper.OrePatchCoordinateWrapper(self, tiles_per_pixel)
 
     def display(self) -> None:  # This will open the image in your default image viewer.
         """This will open the image of the ore patch in your default image viewer. Very slow. Use for debug only"""
-        Image.fromarray(self.resource_array * 255, 'L').show()
+        Image.fromarray(self.resource_array * 255, "L").show()
 
     @property
     def contour(self):
@@ -37,7 +173,10 @@ class OrePatch:
         """Return the weighted center of an ore patch in a pixel point"""
         if self._center_point is None:  # lazy initialization
             moments = cv2.moments(self.resource_array)
-            self._center_point = ((moments["m10"] / moments["m00"]), (moments["m01"] / moments["m00"]))
+            self._center_point = (
+                (moments["m10"] / moments["m00"]),
+                (moments["m01"] / moments["m00"]),
+            )
         return self._center_point
 
     def __lt__(self, other):
@@ -53,54 +192,57 @@ class OrePatch:
         return self.size >= other.size
 
 
-def _create_all_combined_ore_patches(image: np.ndarray,
-                                     resource_colors: dict[str, tuple[int, int, int]],
-                                     side_length_of_pixel_in_tiles: int,
-                                     ) -> dict[str, OrePatch]:
+def _create_all_combined_ore_patches(
+    image: np.ndarray,
+    resource_colors: dict[str, tuple[int, int, int]],
+    tiles_per_pixel: int,
+) -> dict[str, OrePatch]:
     """Filters the original image by each defined resource-colors and creates a patch from it"""
     ore_patch_combined = {}
     all_resource_array = np.zeros((image.shape[0], image.shape[1]), dtype=np.uint8)
     for resource_type in resource_colors.keys():
         resource_color = resource_colors[resource_type][::-1]  # notice conversion from RGB to BGR with [::-1]
         combined_resource_array = cv2.inRange(image, resource_color, resource_color) // 255
-        ore_patch_combined[resource_type] = OrePatch(combined_resource_array, resource_type,
-                                                     side_length_of_pixel_in_tiles)
+        ore_patch_combined[resource_type] = OrePatch(combined_resource_array, resource_type, tiles_per_pixel)
         all_resource_array += combined_resource_array
-    ore_patch_combined["all"] = OrePatch(all_resource_array,
-                                         "all", side_length_of_pixel_in_tiles)
+    ore_patch_combined["all"] = OrePatch(all_resource_array, "all", tiles_per_pixel)
     return ore_patch_combined
 
 
-def _find_all_ore_patches(ore_patch_combined: dict[str, OrePatch],
-                          resource_types: list[str],
-                          side_length_of_pixel_in_tiles: int
-                          ) -> dict[str, list[OrePatch]]:
+def _find_all_ore_patches(
+    ore_patch_combined: dict[str, OrePatch],
+    resource_types: list[str],
+    tiles_per_pixel: int,
+) -> dict[str, list[OrePatch]]:
     """separates ore patches combined by resource type into individual ore patches"""
-    ore_patches = {"all": []}
+    ore_patches: dict[str, list[OrePatch]] = {"all": []}
     for resource_type in resource_types:
         ore_patches[resource_type] = []
         num_of_labels, image_of_labels = cv2.connectedComponents(ore_patch_combined[resource_type].resource_array)
         for label_value in range(1, num_of_labels):  # skip label_value 0 as it is background
             resource_array_of_single_patch = (image_of_labels == label_value).astype(np.uint8)
-            new_ore_patch = OrePatch(resource_array_of_single_patch, resource_type, side_length_of_pixel_in_tiles)
+            new_ore_patch = OrePatch(resource_array_of_single_patch, resource_type, tiles_per_pixel)
             ore_patches[resource_type].append(new_ore_patch)
         ore_patches["all"].extend(ore_patches[resource_type])
     return ore_patches
 
 
 class MapAnalyser:
-    def __init__(self, image_path: str, resource_colors: dict[str, tuple[int, int, int]],
-                 side_length_of_pixel_in_tiles: int):
+    def __init__(
+        self,
+        image_path: str,
+        resource_colors: dict[str, tuple[int, int, int]],
+        tiles_per_pixel: int,
+    ):
         image = cv2.imread(image_path)
-        self.map_seed = int(os.path.splitext(os.path.basename(image_path))[0])
+        self.map_seed = os.path.splitext(os.path.basename(image_path))[0]
         self.dimensions = (image.shape[0], image.shape[1])
         self.resource_types = list(resource_colors.keys())
-        self.ore_patch_combined = _create_all_combined_ore_patches(
-            image, resource_colors, side_length_of_pixel_in_tiles)
-        self.ore_patches = _find_all_ore_patches(
-            self.ore_patch_combined, self.resource_types, side_length_of_pixel_in_tiles)
+        self.ore_patch_combined = _create_all_combined_ore_patches(image, resource_colors, tiles_per_pixel)
+        self.ore_patches = _find_all_ore_patches(self.ore_patch_combined, self.resource_types, tiles_per_pixel)
         self.map_analyser_coordinate_wrapper = analyser_coordinate_wrapper.MapAnalyserCoordinateWrapper(
-            self, side_length_of_pixel_in_tiles)
+            self, tiles_per_pixel
+        )
 
     def get_ore_patches_partially_in_region(self, start_x: int, start_y: int, end_x: int, end_y: int):
         filtered_ore_patches = dict.fromkeys(self.ore_patches.keys())
@@ -112,15 +254,20 @@ class MapAnalyser:
                     filtered_ore_patches[key].append(ore_patch)
         return filtered_ore_patches
 
-    def count_resources_in_region(self, start_x: int, start_y: int, end_x: int, end_y: int,
-                                  resource_type: str) -> int:
+    def count_resources_in_region(self, start_x: int, start_y: int, end_x: int, end_y: int, resource_type: str) -> int:
         """Return the amount of a given resource in the specified region in pixel"""
         return np.sum(self.ore_patch_combined[resource_type].resource_array[start_y:end_y, start_x:end_x])
 
-    def find_longest_consecutive_line_of_resources(self, resource_type: str, thickness: int, tolerance: int,
-                                                   init_start_x: int, init_start_y: int,
-                                                   init_end_x: int, init_end_y: int
-                                                   ) -> tuple[int, tuple[int, int, int, int]]:
+    def find_longest_consecutive_line_of_resources(
+        self,
+        resource_type: str,
+        thickness: int,
+        tolerance: int,
+        init_start_x: int,
+        init_start_y: int,
+        init_end_x: int,
+        init_end_y: int,
+    ) -> tuple[int, Optional[tuple[int, int, int, int]]]:
         """Return the largest region of consecutive resources regarding a set width and its length in pixel"""
         # TODO: this is extremely slow - need a different approach here, there is probably sth. in cv2
         max_x = init_end_x
@@ -163,14 +310,21 @@ class MapAnalyser:
         return MapAnalyser._calculate_min_distance_between_contours(ore_patch.contour, other_ore_patch.contour)
 
     @staticmethod
-    def calculate_min_distance_between_patches_within_region(ore_patch: OrePatch, other_ore_patch: OrePatch,
-                                                             start_x: int, start_y: int, end_x: int, end_y: int
-                                                             ) -> float:
+    def calculate_min_distance_between_patches_within_region(
+        ore_patch: OrePatch,
+        other_ore_patch: OrePatch,
+        start_x: int,
+        start_y: int,
+        end_x: int,
+        end_y: int,
+    ) -> float:
         """Return the distance between two ore patches in pixel within the specified region"""
-        if not (np.sum(ore_patch.resource_array[start_y:end_y, start_x:end_x])
-                and np.sum(other_ore_patch.resource_array[start_y:end_y, start_x:end_x])):
+        if not (
+            np.sum(ore_patch.resource_array[start_y:end_y, start_x:end_x])
+            and np.sum(other_ore_patch.resource_array[start_y:end_y, start_x:end_x])
+        ):
             # TODO: check if np.amax or x.max() are faster than np.sum
-            return float('inf')  # fast return if any list of contour points is empty after filtering
+            return float("inf")  # fast return if any list of contour points is empty after filtering
         contours_within_region = []
         for patch in (ore_patch, other_ore_patch):
             # remove points in contour that are not in range, tough so read, but performant
@@ -183,22 +337,32 @@ class MapAnalyser:
             # by adding 1 to the array and interpreting at as a bool, the previous -1 now becomes False, all other True
             # if any of the x values is marked for removal we also want to remove it's y counterpart and vice versa
             # so we use a logical and to combine the array and than duplicate it, so x and y get the same bool value
-            condition = np.array([np.logical_and(contour_x + 1, contour_y + 1), ] * 2).transpose()
+            condition = np.array(
+                [
+                    np.logical_and(contour_x + 1, contour_y + 1),
+                ]
+                * 2
+            ).transpose()
             contour_within_region = np.ndarray.reshape(patch.contour[condition], (-1, 2))  # filter array by condition
             # # if not contour_within_region.size:
             # #     return float('inf')  # fast return if any list of contour points is empty after filtering
             contours_within_region.append(contour_within_region)
-        return MapAnalyser._calculate_min_distance_between_contours(contours_within_region[0],
-                                                                    contours_within_region[1])
+        return MapAnalyser._calculate_min_distance_between_contours(
+            contours_within_region[0], contours_within_region[1]
+        )
 
     @staticmethod
-    def combine_ore_patches(list_of_ore_patches: list[OrePatch], resource_type: str,
-                            dimensions: tuple[int, int], side_length_of_pixel_in_tiles: int) -> OrePatch:
+    def combine_ore_patches(
+        list_of_ore_patches: list[OrePatch],
+        resource_type: str,
+        dimensions: tuple[int, int],
+        tiles_per_pixel: int,
+    ) -> OrePatch:
         """Merges a list of ore patches into a virtually single one, that may not even be connected"""
         combined_resource_array = np.zeros((dimensions[0], dimensions[1]), dtype=np.uint8)  # in case the list is empty
         for ore_patch in list_of_ore_patches:
             combined_resource_array += ore_patch.resource_array
-        return OrePatch(combined_resource_array, resource_type, side_length_of_pixel_in_tiles)
+        return OrePatch(combined_resource_array, resource_type, tiles_per_pixel)
 
     @staticmethod
     def _calculate_min_distance_between_contours(contour: np.ndarray, other_contour: np.ndarray) -> float:
@@ -220,10 +384,30 @@ class MapAnalyser:
         #   [1 3 5]             [7 4 1]                     [2 4 6]             [8 6 4]
         # We copy the row and transpose just one on the resulting arrays.
         # Now we can run operations on every x with every other x - same for y.
-        contour_x_matrix = np.array([contour_x, ] * other_contour_x.shape[0]).transpose()
-        other_contour_x_matrix = np.array([other_contour_x, ] * contour_x.shape[0])
-        contour_y_matrix = np.array([contour_y, ] * other_contour_y.shape[0]).transpose()
-        other_contour_y_matrix = np.array([other_contour_y, ] * contour_y.shape[0])
+        contour_x_matrix = np.array(
+            [
+                contour_x,
+            ]
+            * other_contour_x.shape[0]
+        ).transpose()
+        other_contour_x_matrix = np.array(
+            [
+                other_contour_x,
+            ]
+            * contour_x.shape[0]
+        )
+        contour_y_matrix = np.array(
+            [
+                contour_y,
+            ]
+            * other_contour_y.shape[0]
+        ).transpose()
+        other_contour_y_matrix = np.array(
+            [
+                other_contour_y,
+            ]
+            * contour_y.shape[0]
+        )
         #   contour_x_matrix    other_contour_x_matrix      contour_y_matrix    other_contour_y_matrix
         #   [[1 1 1]            [[7 4 1]                    [[2 2 2]            [[8 6 4]
         #    [3 3 3]             [7 4 1]                    [4 4 4]              [8 6 4]

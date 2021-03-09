@@ -1,6 +1,7 @@
 # Own
 *.png
 *.csv
+.idea/
 !unittest_images
 
 # Byte-compiled / optimized / DLL files

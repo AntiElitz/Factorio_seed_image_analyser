@@ -8,153 +8,17 @@ from PIL import Image
 import cv2
 import math
 
-import analyser_coordinate_wrapper
+import analyser_factorio_coordinate_wrapper
 
 
 class OrePatch:
-    class Region:
-        def __init__(
-            self,
-            start_x: int,
-            start_y: int,
-            end_x: int,
-            end_y: int,
-            tiles_per_pixel: int,
-            min_x_in_tiles: int,
-            min_y_in_tiles: int,
-            is_factorio_coordinate: bool = True,
-        ):
-            self._tiles_per_pixel = tiles_per_pixel
-            self._min_x_in_tiles = min_x_in_tiles
-            self._min_y_in_tiles = min_y_in_tiles
-            if is_factorio_coordinate:
-                self.start_x = start_x
-                self.start_y = start_y
-                self.end_x = end_x
-                self.end_y = end_y
-            else:
-                self.start_x_in_px = start_x
-                self.start_y_in_px = start_y
-                self.end_x_in_px = end_x
-                self.end_y_in_px = end_y
-
-        @property
-        def start_x(self) -> int:
-            return self._start_x
-
-        @start_x.setter
-        def start_x(self, value: int):
-            self._start_x = value
-            print((value - self._min_x_in_tiles) // self._tiles_per_pixel)
-            self._start_x_in_px = (value - self._min_x_in_tiles) // self._tiles_per_pixel  # round start down
-
-        @property
-        def start_y(self) -> int:
-            return self._start_y
-
-        @start_y.setter
-        def start_y(self, value: int):
-            self._start_y = value
-            self._start_y_in_px = (value - self._min_y_in_tiles) // self._tiles_per_pixel  # round start down
-
-        @property
-        def end_x(self) -> int:
-            return self._end_x
-
-        @end_x.setter
-        def end_x(self, value: int):
-            self._end_x = value
-            # This takes advantage of negative int rounding: 3 // 2 = 1, but -(-3 // 2) = 2
-            self._end_x_in_px = -((-value + self._min_x_in_tiles) // self._tiles_per_pixel)  # round end up
-
-        @property
-        def end_y(self) -> int:
-            return self._end_y
-
-        @end_y.setter
-        def end_y(self, value: int):
-            self._end_y = value
-            # This takes advantage of negative int rounding: 3 // 2 = 1, but -(-3 // 2) = 2
-            self._end_y_in_px = -((-value + self._min_y_in_tiles) // self._tiles_per_pixel)  # round end up
-
-        @property
-        def start_x_in_px(self) -> int:
-            return self._start_x_in_px
-
-        @start_x_in_px.setter
-        def start_x_in_px(self, value: int):
-            self._start_x_in_px = value
-            self._start_x = value * self._tiles_per_pixel + self._min_x_in_tiles  # round start down
-
-        @property
-        def start_y_in_px(self) -> int:
-            return self._start_y_in_px
-
-        @start_y_in_px.setter
-        def start_y_in_px(self, value: int):
-            self._start_y_in_px = value
-            self._start_y = value * self._tiles_per_pixel + self._min_y_in_tiles  # round start down
-
-        @property
-        def end_x_in_px(self) -> int:
-            return self._end_x_in_px
-
-        @end_x_in_px.setter
-        def end_x_in_px(self, value: int):
-            self._end_x_in_px = value
-            # This takes advantage of negative int rounding: 3 // 2 = 1, but -(-3 // 2) = 2
-            self._end_x = value * self._tiles_per_pixel + self._min_x_in_tiles  # round end up
-
-        @property
-        def end_y_in_px(self) -> int:
-            return self._end_y_in_px
-
-        @end_y_in_px.setter
-        def end_y_in_px(self, value: int):
-            self._end_y_in_px = value
-            # This takes advantage of negative int rounding: 3 // 2 = 1, but -(-3 // 2) = 2
-            self._end_y = value * self._tiles_per_pixel + self._min_y_in_tiles  # round end up
-
-        @property
-        def region_tuple(self) -> tuple[int, int, int, int]:
-            return self.start_x, self.start_y, self.end_x, self.end_y
-
-        @region_tuple.setter
-        def region_tuple(self, value: tuple[int, int, int, int]):
-            self.start_x = value[0]
-            self.start_y = value[1]
-            self.end_x = value[2]
-            self.end_y = value[3]
-
-        @property
-        def region_tuple_in_px(self) -> tuple[int, int, int, int]:
-            return self.start_x, self.start_y, self.end_x, self.end_y
-
-        @region_tuple_in_px.setter
-        def region_tuple_in_px(self, value: tuple[int, int, int, int]):
-            self.start_x_in_px = value[0]
-            self.start_y_in_px = value[1]
-            self.end_x_in_px = value[2]
-            self.end_y_in_px = value[3]
-
-        def __eq__(self, other):
-            return self.region_tuple_in_px == other.region_tuple_in_px
-
-        def __ne__(self, other):
-            return self.region_tuple_in_px != other.region_tuple_in_px
-
-        def __getitem__(self, index):
-            return self.region_tuple[index]
-
-    # end of class Region ----------------------------------------------------------------------------------------------
-
     def __init__(self, resource_array: np.ndarray, resource_type: str, tiles_per_pixel: int):
         self.resource_array = resource_array
         self.resource_type = resource_type
         self.size = np.sum(self.resource_array)
         self._contour = None  # lazy initialization (costly operation that will be done just in time in the getter)
         self._center_point = None  # lazy initialization (costly operation that will be done just in time in the getter)
-        self.ore_patch_coordinate_wrapper = analyser_coordinate_wrapper.OrePatchCoordinateWrapper(self, tiles_per_pixel)
+        self.ore_patch_coordinate_wrapper = analyser_factorio_coordinate_wrapper.OrePatchCoordinateWrapper(self, tiles_per_pixel)
 
     def display(self) -> None:  # This will open the image in your default image viewer.
         """This will open the image of the ore patch in your default image viewer. Very slow. Use for debug only"""
@@ -200,8 +64,8 @@ def _create_all_combined_ore_patches(
     """Filters the original image by each defined resource-colors and creates a patch from it"""
     ore_patch_combined = {}
     all_resource_array = np.zeros((image.shape[0], image.shape[1]), dtype=np.uint8)
-    for resource_type in resource_colors.keys():
-        resource_color = resource_colors[resource_type][::-1]  # notice conversion from RGB to BGR with [::-1]
+    for resource_type, resource_color in resource_colors.items():
+        resource_color = resource_color[::-1]  # notice conversion from RGB to BGR with [::-1]
         combined_resource_array = cv2.inRange(image, resource_color, resource_color) // 255
         ore_patch_combined[resource_type] = OrePatch(combined_resource_array, resource_type, tiles_per_pixel)
         all_resource_array += combined_resource_array
@@ -237,21 +101,39 @@ class MapAnalyser:
         image = cv2.imread(image_path)
         self.map_seed = os.path.splitext(os.path.basename(image_path))[0]
         self.dimensions = (image.shape[0], image.shape[1])
-        self.resource_types = list(resource_colors.keys())
+        self.resource_types = list(resource_colors)
         self.ore_patch_combined = _create_all_combined_ore_patches(image, resource_colors, tiles_per_pixel)
         self.ore_patches = _find_all_ore_patches(self.ore_patch_combined, self.resource_types, tiles_per_pixel)
-        self.map_analyser_coordinate_wrapper = analyser_coordinate_wrapper.MapAnalyserCoordinateWrapper(
+        self.map_analyser_coordinate_wrapper = analyser_factorio_coordinate_wrapper.MapAnalyserFactorioCoordinateWrapper(
             self, tiles_per_pixel
         )
 
+    @property
+    def min_x(self) -> int:
+        return 0
+
+    @property
+    def min_y(self) -> int:
+        return 0
+
+    @property
+    def max_x(self) -> int:
+        return self.dimensions[1]
+
+    @property
+    def max_y(self) -> int:
+        return self.dimensions[0]
+
     def get_ore_patches_partially_in_region(self, start_x: int, start_y: int, end_x: int, end_y: int):
-        filtered_ore_patches = dict.fromkeys(self.ore_patches.keys())
-        # TODO: exclude "all"
-        for key in self.ore_patches.keys():
-            filtered_ore_patches[key] = []
-            for ore_patch in self.ore_patches[key]:
+        filtered_ore_patches = dict.fromkeys(self.ore_patches)  # this includes "all"
+        for resource_type, ore_patches in self.ore_patches.items():  # this includes "all"
+            filtered_ore_patches[resource_type] = []
+            if resource_type == "all":
+                continue
+            for ore_patch in ore_patches:
                 if np.sum(ore_patch.resource_array[start_y:end_y, start_x:end_x]):
-                    filtered_ore_patches[key].append(ore_patch)
+                    filtered_ore_patches[resource_type].append(ore_patch)
+                    filtered_ore_patches["all"].append(ore_patch)
         return filtered_ore_patches
 
     def count_resources_in_region(self, start_x: int, start_y: int, end_x: int, end_y: int, resource_type: str) -> int:
@@ -320,10 +202,9 @@ class MapAnalyser:
     ) -> float:
         """Return the distance between two ore patches in pixel within the specified region"""
         if not (
-            np.sum(ore_patch.resource_array[start_y:end_y, start_x:end_x])
-            and np.sum(other_ore_patch.resource_array[start_y:end_y, start_x:end_x])
+            np.amax(ore_patch.resource_array[start_y:end_y, start_x:end_x])
+            and np.amax(other_ore_patch.resource_array[start_y:end_y, start_x:end_x])
         ):
-            # TODO: check if np.amax or x.max() are faster than np.sum
             return float("inf")  # fast return if any list of contour points is empty after filtering
         contours_within_region = []
         for patch in (ore_patch, other_ore_patch):

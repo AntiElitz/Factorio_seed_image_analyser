@@ -2,19 +2,20 @@ from __future__ import annotations
 
 import unittest
 
-import analyser_coordinate_wrapper
+import analyser
+import analyser_factorio_coordinate_wrapper
 import image_analyser_pool
 
 
 class SeedAnalyserUnittest(unittest.TestCase):
     resource_type_with_all = ["iron", "copper", "coal", "water", "all"]
 
-    def my_analyser_func(self, map_analyser: analyser_coordinate_wrapper.MapAnalyserCoordinateWrapper) -> list[str]:
-        self.analyser.append(map_analyser)
+    def my_analyser_func(self, map_analyser: analyser.MapAnalyser) -> list[str]:
+        self.analyser.append(map_analyser.map_analyser_coordinate_wrapper)
         return []
 
     def setUp(self):
-        self.analyser: list[analyser_coordinate_wrapper.MapAnalyserCoordinateWrapper] = []
+        self.analyser: list[analyser_factorio_coordinate_wrapper.MapAnalyserFactorioCoordinateWrapper] = []
 
         for i in range(0, 5):
             resource_colors = {
@@ -27,7 +28,6 @@ class SeedAnalyserUnittest(unittest.TestCase):
             file_extension = ".png"
             tiles_pre_pixel = 8
 
-            # TODO: disable tqdm output
             manager = image_analyser_pool.ImageAnalyserPool(None)
             manager.add_folder_of_images_to_analyse(folder_path, file_extension, resource_colors, tiles_pre_pixel)
             manager.analyse(self.my_analyser_func, False, True)
@@ -236,7 +236,6 @@ class SeedAnalyserUnittest(unittest.TestCase):
                     self.resource_type_with_all[i]
                 ]
                 self.assertEqual([elem.size for elem in ore_patches], expected_results[i])
-
 
 
 resource_type_with_all = ["iron", "copper", "coal", "water", "all"]

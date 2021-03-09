@@ -1,19 +1,16 @@
 import glob
+
 import concurrent.futures
 from typing import Callable, Optional
 
 from tqdm import tqdm
 import csv
 import analyser
-import analyser_coordinate_wrapper
-
-MULTIPROCESS = False  # False is useful to debug and analyse the performance in the profiler. True for faster execution.
+import cv2
 
 
 def _analyse(
-    callback_analyser_function: Callable[
-        [analyser_coordinate_wrapper.MapAnalyserCoordinateWrapper], Optional[list[str]]
-    ],
+    callback_analyser_function: Callable[[analyser.MapAnalyser], Optional[list[str]]],
     parameters: tuple[str, dict[str, tuple[int, int, int]], int],
 ) -> Optional[list[str]]:
     """Creates an analyser for the maps and calls the callback function with the wrapped analyser
@@ -22,9 +19,8 @@ def _analyse(
     image_path = parameters[0]
     resource_colors = parameters[1]
     tiles_per_pixel = parameters[2]
-    my_map_analyser = analyser.MapAnalyser(image_path, resource_colors, tiles_per_pixel)
-    map_analyser_coordinate_wrapper = my_map_analyser.map_analyser_coordinate_wrapper
-    return callback_analyser_function(map_analyser_coordinate_wrapper)
+    map_analyser = analyser.MapAnalyser(image_path, resource_colors, tiles_per_pixel)
+    return callback_analyser_function(map_analyser)
 
 
 class ImageAnalyserPool:
@@ -54,13 +50,12 @@ class ImageAnalyserPool:
 
     def analyse(
         self,
-        callback_analyser_function: Callable[
-            [analyser_coordinate_wrapper.MapAnalyserCoordinateWrapper], Optional[list[str]]
-        ],
+        callback_analyser_function: Callable[[analyser.MapAnalyser], Optional[list[str]]],
         multiprocess: bool = True,
         tqdm_disable: bool = False,
     ):
         """Starts the actual analysing process"""
+        cv2.setNumThreads(0)  # faster on single and multi-process
         if multiprocess:
             with concurrent.futures.ProcessPoolExecutor(max_workers=self._max_workers) as executor:
                 with tqdm(total=len(self._tasks_parameters), disable=tqdm_disable) as progress:

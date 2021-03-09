@@ -18,7 +18,9 @@ class OrePatch:
         self.size = np.sum(self.resource_array)
         self._contour = None  # lazy initialization (costly operation that will be done just in time in the getter)
         self._center_point = None  # lazy initialization (costly operation that will be done just in time in the getter)
-        self.ore_patch_coordinate_wrapper = analyser_factorio_coordinate_wrapper.OrePatchCoordinateWrapper(self, tiles_per_pixel)
+        self.ore_patch_coordinate_wrapper = analyser_factorio_coordinate_wrapper.OrePatchFactorioCoordinateWrapper(
+            self, tiles_per_pixel
+        )
 
     def display(self) -> None:  # This will open the image in your default image viewer.
         """This will open the image of the ore patch in your default image viewer. Very slow. Use for debug only"""
@@ -104,8 +106,8 @@ class MapAnalyser:
         self.resource_types = list(resource_colors)
         self.ore_patch_combined = _create_all_combined_ore_patches(image, resource_colors, tiles_per_pixel)
         self.ore_patches = _find_all_ore_patches(self.ore_patch_combined, self.resource_types, tiles_per_pixel)
-        self.map_analyser_coordinate_wrapper = analyser_factorio_coordinate_wrapper.MapAnalyserFactorioCoordinateWrapper(
-            self, tiles_per_pixel
+        self.map_analyser_coordinate_wrapper = (
+            analyser_factorio_coordinate_wrapper.MapAnalyserFactorioCoordinateWrapper(self, tiles_per_pixel)
         )
 
     @property
@@ -141,6 +143,55 @@ class MapAnalyser:
         return np.sum(self.ore_patch_combined[resource_type].resource_array[start_y:end_y, start_x:end_x])
 
     def find_longest_consecutive_line_of_resources(
+        self,
+        resource_type: str,
+        thickness: int,
+        tolerance: int,
+        init_start_x: int,
+        init_start_y: int,
+        init_end_x: int,
+        init_end_y: int,
+    ) -> tuple[int, Optional[tuple[int, int, int, int]]]:
+        """Return the largest region of consecutive resources regarding a set width and its length in pixel"""
+        resource_array = self.ore_patch_combined[resource_type].resource_array[
+            init_start_y:init_end_y, init_start_x:init_end_x
+        ]
+        x_length = init_end_x - init_start_x
+        y_length = init_end_y - init_start_y
+        max_length = max(x_length, y_length)
+        while True:
+            # horizontal window
+            kernel = np.ones((thickness, max_length), np.int8)
+            dst_horizontal = cv2.filter2D(resource_array, -1, kernel, anchor=(0, 0))[
+                0 : (y_length - thickness + 1), 0 : (x_length - max_length + 1)
+            ]
+            dst_vertical = cv2.filter2D(
+                resource_array, -1, kernel.transpose(), anchor=(0, 0), borderType=cv2.BORDER_CONSTANT
+            )[0 : y_length - max_length + 1, 0 : x_length - thickness + 1]
+            area_with_resources_horizontal = np.amax(dst_horizontal)
+            area_with_resources_vertical = np.amax(dst_vertical)
+            if area_with_resources_horizontal < area_with_resources_vertical:
+                is_vertically_orientated = True
+                dst = dst_vertical
+                area_with_resources = area_with_resources_vertical
+            else:
+                is_vertically_orientated = False
+                dst = dst_horizontal
+                area_with_resources = area_with_resources_horizontal
+            if area_with_resources + tolerance < max_length * thickness:
+                max_length = (area_with_resources + tolerance) // thickness
+            else:
+                break
+        result = np.where(dst == area_with_resources)
+        max_pos_with_offset = list(zip(result[1], result[0]))[0]
+        max_pos = max_pos_with_offset[0] + init_start_x, max_pos_with_offset[1] + init_start_y
+        if is_vertically_orientated:
+            max_region = max_pos[0], max_pos[1], max_pos[0] + thickness, max_pos[1] + max_length
+        else:
+            max_region = max_pos[0], max_pos[1], max_pos[0] + max_length, max_pos[1] + thickness
+        return max_length, max_region
+
+    def find_longest_consecutive_line_of_resources_old(
         self,
         resource_type: str,
         thickness: int,

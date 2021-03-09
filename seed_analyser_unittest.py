@@ -205,6 +205,8 @@ class SeedAnalyserUnittest(unittest.TestCase):
                 )
                 self.assertEqual(round(result, 2), expected_result)
 
+    # TODO: mypy
+    # TODO: Fix this test
     def test_find_longest_consecutive_line_of_resources(self):
         for i in range(0, 5):
             with self.subTest(i=i):
@@ -221,7 +223,7 @@ class SeedAnalyserUnittest(unittest.TestCase):
                     ),
                     expected_results[i],
                 )
-
+    # TODO: add test with region for test_find_longest_consecutive_line_of_resources
     def test_get_ore_patches_partially_in_region(self):
         for i in range(0, 5):
             with self.subTest(i=i):

@@ -6,7 +6,7 @@ from typing import Optional
 import analyser
 
 
-class OrePatchCoordinateWrapper:
+class OrePatchFactorioCoordinateWrapper:
     def __init__(self, ore_patch: analyser.OrePatch, tiles_per_pixel: int):
         self.wrapped_ore_patch = ore_patch
         self._tiles_per_pixel = tiles_per_pixel
@@ -38,16 +38,16 @@ class OrePatchCoordinateWrapper:
         self.wrapped_ore_patch.display()
 
     def __lt__(self, other):
-        return self.size < other.size
+        return self.wrapped_ore_patch.size < other.wrapped_ore_patch.size
 
     def __le__(self, other):
-        return self.size <= other.size
+        return self.wrapped_ore_patch.size <= other.wrapped_ore_patch.size
 
     def __gt__(self, other):
-        return self.size > other.size
+        return self.wrapped_ore_patch.size > other.wrapped_ore_patch.size
 
     def __ge__(self, other):
-        return self.size >= other.size
+        return self.wrapped_ore_patch.size >= other.wrapped_ore_patch.size
 
 
 class MapAnalyserFactorioCoordinateWrapper:
@@ -55,6 +55,34 @@ class MapAnalyserFactorioCoordinateWrapper:
         self.wrapped_map_analyser = map_analyser
         self._tiles_per_pixel = tiles_per_pixel
         self._tiles_per_pixel_sq = tiles_per_pixel * tiles_per_pixel
+        __max_x_px = self.wrapped_map_analyser.dimensions[1]
+        __max_y_px = self.wrapped_map_analyser.dimensions[0]
+        self._min_x = (-__max_x_px // 2) * tiles_per_pixel
+        self._min_y = (-__max_y_px // 2) * tiles_per_pixel
+        self._max_x = (__max_x_px // 2) * tiles_per_pixel
+        self._max_y = (__max_y_px // 2) * tiles_per_pixel
+        self._ore_patches = None  # lazy initialization
+        self._ore_patch_combined = None  # lazy initialization
+
+    @property
+    def min_x(self) -> int:
+        """Return the minimum x value of the image in Factorio coordinates"""
+        return self._min_x
+
+    @property
+    def min_y(self) -> int:
+        """Return the minimum y value of the image in Factorio coordinates"""
+        return  self._min_y
+
+    @property
+    def max_x(self) -> int:
+        """Return the maximum x value of the image in Factorio coordinates"""
+        return self._max_x
+
+    @property
+    def max_y(self) -> int:
+        """Return the maximum y value of the image in Factorio coordinates"""
+        return self._max_y
 
     @property
     def map_seed(self) -> str:
@@ -67,55 +95,39 @@ class MapAnalyserFactorioCoordinateWrapper:
         return self.wrapped_map_analyser.resource_types.copy()
 
     @property
-    def ore_patches(self) -> dict[str, list[OrePatchCoordinateWrapper]]:
+    def ore_patches(self) -> dict[str, list[OrePatchFactorioCoordinateWrapper]]:
         """Return a Dictionary containing lists of patches for each resource type
         example usages:
         my_map_analyser.ore_patches['coal']  # return list of all coal patches
         my_map_analyser.ore_patches['all']  # return list of ALL patches regardless of resource type
         """
-        ore_patches = self.wrapped_map_analyser.ore_patches
-        # replace ore_patches with their ore_patch_coordinate_wrapper
-        ore_patches_with_wrapper_dict = dict.fromkeys(ore_patches)
-        for resource_type in ore_patches_with_wrapper_dict:
-            ore_patches_with_wrapper_dict[resource_type] = [
-                elem.ore_patch_coordinate_wrapper for elem in ore_patches[resource_type]
-            ]
-        return ore_patches_with_wrapper_dict
+        if self._ore_patches is None:  # lazy initialization
+            ore_patches = self.wrapped_map_analyser.ore_patches
+            # replace ore_patches with their ore_patch_coordinate_wrapper
+            ore_patches_with_wrapper_dict = dict.fromkeys(ore_patches)
+            for resource_type in ore_patches_with_wrapper_dict:
+                ore_patches_with_wrapper_dict[resource_type] = [
+                    elem.ore_patch_coordinate_wrapper for elem in ore_patches[resource_type]
+                ]
+            self._ore_patches = ore_patches_with_wrapper_dict
+        return self._ore_patches
 
     @property
-    def ore_patch_combined(self) -> dict[str, OrePatchCoordinateWrapper]:
+    def ore_patch_combined(self) -> dict[str, OrePatchFactorioCoordinateWrapper]:
         """Return a dictionary containing each resource type as a single combined patch
         example usages:
         my_map_analyser.ore_patch_combined['coal']  # return all coal in only one patch as if it was a single one
         """
-        ore_patch_combined = self.wrapped_map_analyser.ore_patch_combined
-        # replace ore_patches with their ore_patch_coordinate_wrapper
-        ore_patch_combined_with_wrapper_dict = dict.fromkeys(ore_patch_combined)
-        for resource_type in ore_patch_combined_with_wrapper_dict:
-            ore_patch_combined_with_wrapper_dict[resource_type] = ore_patch_combined[
-                resource_type
-            ].ore_patch_coordinate_wrapper
-        return ore_patch_combined_with_wrapper_dict
-
-    @property
-    def min_x(self) -> int:
-        """Return the minimum x value of the image in Factorio coordinates"""
-        return (-self.wrapped_map_analyser.dimensions[1] // 2) * self._tiles_per_pixel
-
-    @property
-    def min_y(self) -> int:
-        """Return the minimum y value of the image in Factorio coordinates"""
-        return (-self.wrapped_map_analyser.dimensions[0] // 2) * self._tiles_per_pixel
-
-    @property
-    def max_x(self) -> int:
-        """Return the maximum x value of the image in Factorio coordinates"""
-        return (self.wrapped_map_analyser.dimensions[1] // 2) * self._tiles_per_pixel
-
-    @property
-    def max_y(self) -> int:
-        """Return the maximum y value of the image in Factorio coordinates"""
-        return (self.wrapped_map_analyser.dimensions[0] // 2) * self._tiles_per_pixel
+        if self._ore_patch_combined is None:  # lazy initialization
+            ore_patch_combined = self.wrapped_map_analyser.ore_patch_combined
+            # replace ore_patches with their ore_patch_coordinate_wrapper
+            ore_patch_combined_with_wrapper_dict = dict.fromkeys(ore_patch_combined)
+            for resource_type in ore_patch_combined_with_wrapper_dict:
+                ore_patch_combined_with_wrapper_dict[resource_type] = ore_patch_combined[
+                    resource_type
+                ].ore_patch_coordinate_wrapper
+            self._ore_patch_combined = ore_patch_combined_with_wrapper_dict
+        return self._ore_patch_combined
 
     def is_in_bounds_x(self, x: int) -> bool:
         """Checks if the x value of a Factorio coordinate is withing the bounds of the image"""
@@ -147,7 +159,7 @@ class MapAnalyserFactorioCoordinateWrapper:
         start_y: int,
         end_x: int,
         end_y: int,
-    ) -> dict[str, list[OrePatchCoordinateWrapper]]:
+    ) -> dict[str, list[OrePatchFactorioCoordinateWrapper]]:
         """Return a dictionary containing lists of patches that are partially in a region for each resource type"""
         # convert Factorio coordinates to pixel - makes region larger, if inputs don't align
         start_x_px, start_y_px, end_x_px, end_y_px = self._coordinate_region_to_pixel_region(
@@ -213,7 +225,7 @@ class MapAnalyserFactorioCoordinateWrapper:
         )
 
     def calculate_min_distance_between_patches(
-        self, ore_patch: OrePatchCoordinateWrapper, other_ore_patch: OrePatchCoordinateWrapper
+        self, ore_patch: OrePatchFactorioCoordinateWrapper, other_ore_patch: OrePatchFactorioCoordinateWrapper
     ) -> float:
         """Return the distance between two ore patches in Factorio tiles"""
         # call parent and convert distance in pixels to Factorio tiles
@@ -226,8 +238,8 @@ class MapAnalyserFactorioCoordinateWrapper:
 
     def calculate_min_distance_between_patches_within_region(
         self,
-        ore_patch: OrePatchCoordinateWrapper,
-        other_ore_patch: OrePatchCoordinateWrapper,
+        ore_patch: OrePatchFactorioCoordinateWrapper,
+        other_ore_patch: OrePatchFactorioCoordinateWrapper,
         start_x: int,
         start_y: int,
         end_x: int,

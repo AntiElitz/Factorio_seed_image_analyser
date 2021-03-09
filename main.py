@@ -3,9 +3,6 @@ from typing import Optional
 import image_analyser_pool
 from analyser import MapAnalyser
 
-PRINTS = False
-PLOTS = False
-
 
 def my_analyser_function(analyser: MapAnalyser) -> Optional[list[str]]:
     """Your code to analyse an individual map goes here
@@ -15,16 +12,18 @@ def my_analyser_function(analyser: MapAnalyser) -> Optional[list[str]]:
     # the wrapper allows to use Factorio coordinates with a centered coordinate system and tile units instead of pixels
     analyser = analyser.map_analyser_coordinate_wrapper  # ! you may not want to remove this
 
+    do_prints = False
+    do_plots = False
     # example on how to get the map seed and the resources available for analysing
     map_seed = analyser.map_seed
     resource_types = analyser.resource_types
-    if PRINTS:
+    if do_prints:
         print(f"This is the map seed {map_seed}. It contains the following resource types: {resource_types}.")
 
     # example on how to get the amount of "coal" in a specific region
     (start_x, start_y, end_x, end_y) = analyser.min_x, analyser.min_y, analyser.max_x, analyser.max_y
     size_in_tiles = analyser.count_resources_in_region(start_x, start_y, end_x, end_y, "coal")
-    if PRINTS:
+    if do_prints:
         print(f"There are {size_in_tiles} coal tiles in the region {(start_x, start_y, end_x, end_y)}.")
 
     # example on how to get the largest iron patch and it's size, type and center point
@@ -33,7 +32,7 @@ def my_analyser_function(analyser: MapAnalyser) -> Optional[list[str]]:
     largest_ore_patch_size_in_tiles = largest_ore_patch.size
     largest_ore_patch_resource_type = largest_ore_patch.resource_type
     largest_ore_patch_center_point = largest_ore_patch.center_point
-    if PRINTS:
+    if do_prints:
         print(
             f"The largest {largest_ore_patch_resource_type} patch contains {largest_ore_patch_size_in_tiles} "
             f"tiles and is located at {largest_ore_patch_center_point}."
@@ -43,7 +42,7 @@ def my_analyser_function(analyser: MapAnalyser) -> Optional[list[str]]:
     start_x, start_y, end_x, end_y = -64, -64, 64, 64
     filtered_ore_patches_dict = analyser.get_ore_patches_partially_in_region(start_x, start_y, end_x, end_y)
     iron_ore_patches = filtered_ore_patches_dict["iron"]
-    if PRINTS:
+    if do_prints:
         print(
             f"The center points of the iron ore patches partially in the region {(start_x, start_y, end_x, end_y)} "
             f"are {[elem.center_point for elem in iron_ore_patches]}."
@@ -51,14 +50,14 @@ def my_analyser_function(analyser: MapAnalyser) -> Optional[list[str]]:
 
     # example on how to plot any ore patch for debugging
     ore_patch = analyser.ore_patch_combined["water"]  # This is all water combined in one virtual patch
-    if PLOTS:
+    if do_plots:
         ore_patch.display()
 
     # example on how to get the minimum distance between 2 ore patches
     ore_patch = analyser.ore_patches["all"][0]  # the key "all" contains the patches of each key
     other_ore_patch = analyser.ore_patches["all"][1]
     distance = analyser.calculate_min_distance_between_patches(ore_patch, other_ore_patch)
-    if PRINTS:
+    if do_prints:
         print(f"The minimum distance between these 2 ore patches is {distance} tiles.")
 
     # example on how to get the minimum distance between 2 ore patches within a limited region
@@ -68,7 +67,7 @@ def my_analyser_function(analyser: MapAnalyser) -> Optional[list[str]]:
     distance = analyser.calculate_min_distance_between_patches_within_region(
         ore_patch, other_ore_patch, start_x, start_y, end_x, end_y
     )
-    if PRINTS:
+    if do_prints:
         print(
             f"The minimum distance between these 2 ore patches within the region {(start_x, start_y, end_x, end_y)} "
             f"is {distance} tiles."
@@ -84,7 +83,7 @@ def my_analyser_function(analyser: MapAnalyser) -> Optional[list[str]]:
         if distance < min_distance:
             min_distance = distance
             closest_ore_patch = ore_patch
-    if PRINTS:
+    if do_prints:
         if closest_ore_patch is None:
             print("There is either no coal or no water")
         else:
@@ -109,7 +108,7 @@ def my_analyser_function(analyser: MapAnalyser) -> Optional[list[str]]:
                 min_distance = distance
                 closest_ore_patch = ore_patch
                 closest_water_patch = other_ore_patch
-    if PRINTS:
+    if do_prints:
         if closest_ore_patch is None or closest_water_patch is None:
             print("There is either no coal or no water in the area.")
         else:
@@ -158,18 +157,19 @@ def my_analyser_function(analyser: MapAnalyser) -> Optional[list[str]]:
                 (area[0].center_point[1] + area[1].center_point[1] + area[2].center_point[1]) / 3,
             )
         )
-    if PRINTS:
+    if do_prints:
         print(f"There are nice starting areas located at {possible_starting_areas_coordinates}.")
 
-    # # example on how to find the largest resource area of a given width
-    # max_length, region = analyser.find_longest_consecutive_line_of_resources("iron", 16, 256)
-    # if PRINTS:
-    #     print(
-    #         f"The largest area of iron that is 16 tiles wide is {max_length} tiles long and located at {region}. "
-    #         f"It may contain up to 256 other tiles."
-    #     )
+    # example on how to find the largest resource area of a given width
+    max_length, region = analyser.find_longest_consecutive_line_of_resources("iron", 16, 256)
+    if do_prints:
+        print(
+            f"The largest area of iron that is 16 tiles wide is {max_length} tiles long and located at {region}. "
+            f"It may contain up to 256 other tiles."
+        )
+    # TODO: add example with region for test_find_longest_consecutive_line_of_resources
 
-    if PRINTS:
+    if do_prints:
         print("------------------------------------------")
 
     # this is what goes into the resulting .csv file row. Return None to discard the map.
@@ -190,7 +190,7 @@ def main():
     folder_path = "images10000"
     file_extension = ".png"
     tiles_pre_pixel = 8
-    multiprocess = False
+    multiprocess = True
 
     manager = image_analyser_pool.ImageAnalyserPool(None)
     manager.add_folder_of_images_to_analyse(folder_path, file_extension, resource_colors, tiles_pre_pixel)

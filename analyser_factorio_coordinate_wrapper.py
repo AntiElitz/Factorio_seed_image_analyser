@@ -61,8 +61,8 @@ class MapAnalyserFactorioCoordinateWrapper:
         self._min_y = (-__max_y_px // 2) * tiles_per_pixel
         self._max_x = (__max_x_px // 2) * tiles_per_pixel
         self._max_y = (__max_y_px // 2) * tiles_per_pixel
-        self._ore_patches = None  # lazy initialization
-        self._ore_patch_combined = None  # lazy initialization
+        self._ore_patches: Optional[dict[str, list[OrePatchFactorioCoordinateWrapper]]] = None  # lazy initialization
+        self._ore_patch_combined: Optional[dict[str, OrePatchFactorioCoordinateWrapper]] = None  # lazy initialization
 
     @property
     def min_x(self) -> int:
@@ -72,7 +72,7 @@ class MapAnalyserFactorioCoordinateWrapper:
     @property
     def min_y(self) -> int:
         """Return the minimum y value of the image in Factorio coordinates"""
-        return  self._min_y
+        return self._min_y
 
     @property
     def max_x(self) -> int:
@@ -141,7 +141,7 @@ class MapAnalyserFactorioCoordinateWrapper:
         """Checks if a Factorio coordinate is withing the bounds of the image"""
         return self.is_in_bounds_x(point[0]) and self.is_in_bounds_y(point[1])
 
-    def count_resources_in_region(self, start_x: int, start_y: int, end_x: int, end_y: int, resource_type: str) -> int:
+    def count_resources_in_region(self, resource_type: str, start_x: int, start_y: int, end_x: int, end_y: int) -> int:
         """Return the amount of a given resource in the specified region in Factorio tiles"""
         # convert Factorio coordinates to pixel - makes region larger, if inputs don't align
         start_x_px, start_y_px, end_x_px, end_y_px = self._coordinate_region_to_pixel_region(
@@ -149,7 +149,7 @@ class MapAnalyserFactorioCoordinateWrapper:
         )
         # call parent and convert area in square pixels to Factorio tiles
         area_px = self.wrapped_map_analyser.count_resources_in_region(
-            start_x_px, start_y_px, end_x_px, end_y_px, resource_type
+            resource_type, start_x_px, start_y_px, end_x_px, end_y_px
         )
         return self._tiles_per_pixel_sq * area_px
 
@@ -176,10 +176,10 @@ class MapAnalyserFactorioCoordinateWrapper:
             ]
         return ore_patches_with_wrapper_dict
 
-    def find_longest_consecutive_line_of_resources(
+    def find_longest_consecutive_line_of_resources_in_region(
         self,
         resource_type: str,
-        thickness: int = None,
+        thickness: int,
         tolerance: int = 0,
         start_x: int = None,
         start_y: int = None,
@@ -190,10 +190,6 @@ class MapAnalyserFactorioCoordinateWrapper:
         Return (0, None) if nothing is found
         param thickness: The width of the region
         param tolerance: How many tiles of the given resource the region can miss"""
-        if thickness is None:
-            thickness = self._tiles_per_pixel
-        elif thickness <= 0:
-            raise IndexError("Thickness must be positive value larger than 0")
         if start_x is None:
             start_x = self.min_x
         if start_y is None:
@@ -207,7 +203,7 @@ class MapAnalyserFactorioCoordinateWrapper:
             start_x, start_y, end_x, end_y
         )
         # call parent with conversions to pixel
-        max_length, region = self.wrapped_map_analyser.find_longest_consecutive_line_of_resources(
+        max_length, region = self.wrapped_map_analyser.find_longest_consecutive_line_of_resources_in_region(
             resource_type,
             math.ceil(thickness / self._tiles_per_pixel),
             math.ceil(tolerance / self._tiles_per_pixel_sq),

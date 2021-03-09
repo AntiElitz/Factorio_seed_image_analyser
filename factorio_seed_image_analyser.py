@@ -1,19 +1,37 @@
 from typing import Optional
-
+import argparse
 import image_analyser_pool
 from analyser import MapAnalyser
 
 
-def my_analyser_function(analyser: MapAnalyser) -> Optional[list[str]]:
+def my_analyser_function(analyser_px: MapAnalyser) -> Optional[list[str]]:
     """Your code to analyse an individual map goes here
 
     Below are some examples of how to archive some basics
+
+    most useful implementations:
+        analyser.ore_patches
+        analyser.ore_patch_combined
+        analyser.get_ore_patches_partially_in_region(start_x, start_y, end_x, end_y)
+        analyser.calculate_min_distance_between_patches(ore_patch, other_ore_patch)
+        analyser.calculate_min_distance_between_patches_within_region(
+            ore_patch, other_ore_patch, start_x, start_y, end_x, end_y
+        )
+        analyser.count_resources_in_region(resource_type, start_x, start_y, end_x, end_y)
+        analyser.find_longest_consecutive_line_of_resources_in_region(
+            resource_type, thickness[, tolerance[, start_x, start_y, end_x, end_y]]
+        )
+        ore_patch.size
+        ore_patch.center_point
     """
     # the wrapper allows to use Factorio coordinates with a centered coordinate system and tile units instead of pixels
-    analyser = analyser.map_analyser_coordinate_wrapper  # ! you may not want to remove this
+    analyser = analyser_px.map_analyser_coordinate_wrapper  # ! you may not want to remove this
+    ####################################################################################################################
 
+    # turn this on if you want to see the example results in the console
     do_prints = False
     do_plots = False
+
     # example on how to get the map seed and the resources available for analysing
     map_seed = analyser.map_seed
     resource_types = analyser.resource_types
@@ -22,7 +40,7 @@ def my_analyser_function(analyser: MapAnalyser) -> Optional[list[str]]:
 
     # example on how to get the amount of "coal" in a specific region
     (start_x, start_y, end_x, end_y) = analyser.min_x, analyser.min_y, analyser.max_x, analyser.max_y
-    size_in_tiles = analyser.count_resources_in_region(start_x, start_y, end_x, end_y, "coal")
+    size_in_tiles = analyser.count_resources_in_region("coal", start_x, start_y, end_x, end_y)
     if do_prints:
         print(f"There are {size_in_tiles} coal tiles in the region {(start_x, start_y, end_x, end_y)}.")
 
@@ -144,7 +162,8 @@ def my_analyser_function(analyser: MapAnalyser) -> Optional[list[str]]:
                         if max_distance >= analyser.calculate_min_distance_between_patches(coal_patch, iron_patch):
                             if max_distance >= analyser.calculate_min_distance_between_patches(
                                 # coal close to copper?
-                                coal_patch, copper_patch
+                                coal_patch,
+                                copper_patch,
                             ):
                                 # found iron/ copper/ coal triple successfully
                                 possible_starting_areas.append((iron_patch, copper_patch, coal_patch))
@@ -160,42 +179,78 @@ def my_analyser_function(analyser: MapAnalyser) -> Optional[list[str]]:
     if do_prints:
         print(f"There are nice starting areas located at {possible_starting_areas_coordinates}.")
 
-    # example on how to find the largest resource area of a given width
-    max_length, region = analyser.find_longest_consecutive_line_of_resources("iron", 16, 256)
+    # example on how to find the largest iron area of a given width
+    max_length, region = analyser.find_longest_consecutive_line_of_resources_in_region("iron", 16, 256)
     if do_prints:
         print(
             f"The largest area of iron that is 16 tiles wide is {max_length} tiles long and located at {region}. "
             f"It may contain up to 256 other tiles."
         )
-    # TODO: add example with region for test_find_longest_consecutive_line_of_resources
+
+    # example on how to find the largest iron area of a given width in the starting area
+    start_x, start_y, end_x, end_y = 256, 256, 384, 384
+    max_length, region = analyser.find_longest_consecutive_line_of_resources_in_region(
+        "iron", 32, 128, start_x, start_y, end_x, end_y
+    )
+    if do_prints:
+        print(
+            f"The largest area of iron withing the starting area that is 32 tiles wide is {max_length} "
+            f"tiles long and located at {region}. It may contain up to 128 other tiles."
+        )
 
     if do_prints:
         print("------------------------------------------")
 
     # this is what goes into the resulting .csv file row. Return None to discard the map.
     if largest_ore_patch.size > 2500:
-        return [str(analyser.map_seed), str(analyser.min_x), str(largest_ore_patch.size)]
+        return [str(analyser.map_seed), str(largest_ore_patch.size), str(min_distance)]
     else:
         return None
 
 
+def init_argparse() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        usage="%(prog)s [FOLDER_PATH] [FILE_TYPE] [TILES_PER_PIXEL] [CSV_PATH]",
+        description="A tool to analyse preview-images of Factorio seeds.",
+    )
+    parser.add_argument("-v", "--version", action="version", version=f"{parser.prog} version 0.1.0")
+    parser.add_argument("-p", "--folder_path", default="images", help="the path to the image folder")
+    parser.add_argument("-ft", "--file_type", default=".png", help="The extension of the files to be processed")
+    parser.add_argument(
+        "-tpp", "--tiles_pre_pixel", type=int, default=8, help="how many tiles a pixel does correspond to"
+    )
+    parser.add_argument("-cp", "--csv_path", default="results.csv", help="the path to the output file")
+    parser.add_argument(
+        "-st",
+        "--singlethread",
+        action="store_const",
+        const=True,
+        default=False,
+        help="Turns off the ProcessPoolExecutor and uses a single thread only",
+    )
+    return parser
+
+
 def main():
     """This is where you define what you want to analyse"""
+    args = init_argparse().parse_args()
+
     resource_colors = {  # Colors in RGB
         "iron": (104, 132, 146),
         "copper": (203, 97, 53),
         "coal": (0, 0, 0),
         "water": (51, 83, 95),
     }
-    folder_path = "images10000"
-    file_extension = ".png"
-    tiles_pre_pixel = 8
-    multiprocess = True
+    image_folder_path = args.folder_path
+    file_extension = args.file_type
+    tiles_pre_pixel = args.tiles_pre_pixel
+    multiprocess = not args.singlethread
+    csv_path = args.csv_path
 
     manager = image_analyser_pool.ImageAnalyserPool(None)
-    manager.add_folder_of_images_to_analyse(folder_path, file_extension, resource_colors, tiles_pre_pixel)
+    manager.add_folder_of_images_to_analyse(image_folder_path, file_extension, tiles_pre_pixel, resource_colors)
     manager.analyse(my_analyser_function, multiprocess)
-    manager.save_results_to_csv("results.csv")
+    manager.save_results_to_csv(csv_path)
 
 
 if __name__ == "__main__":

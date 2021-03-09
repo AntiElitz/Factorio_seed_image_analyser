@@ -138,103 +138,72 @@ class MapAnalyser:
                     filtered_ore_patches["all"].append(ore_patch)
         return filtered_ore_patches
 
-    def count_resources_in_region(self, start_x: int, start_y: int, end_x: int, end_y: int, resource_type: str) -> int:
+    def count_resources_in_region(self, resource_type: str, start_x: int, start_y: int, end_x: int, end_y: int) -> int:
         """Return the amount of a given resource in the specified region in pixel"""
         return np.sum(self.ore_patch_combined[resource_type].resource_array[start_y:end_y, start_x:end_x])
 
-    def find_longest_consecutive_line_of_resources(
+    def find_longest_consecutive_line_of_resources_in_region(
         self,
         resource_type: str,
         thickness: int,
-        tolerance: int,
-        init_start_x: int,
-        init_start_y: int,
-        init_end_x: int,
-        init_end_y: int,
+        tolerance: int = 0,
+        init_start_x: int = 0,
+        init_start_y: int = 0,
+        init_end_x: int = None,
+        init_end_y: int = None,
     ) -> tuple[int, Optional[tuple[int, int, int, int]]]:
         """Return the largest region of consecutive resources regarding a set width and its length in pixel"""
+        # fill optional parameters
+        if init_end_x is None:
+            init_end_x = self.max_x
+        if init_end_y is None:
+            init_end_y = self.max_y
+        # cut array to region of interest
         resource_array = self.ore_patch_combined[resource_type].resource_array[
             init_start_y:init_end_y, init_start_x:init_end_x
         ]
+        # get dimensions
         x_length = init_end_x - init_start_x
         y_length = init_end_y - init_start_y
         max_length = max(x_length, y_length)
-        while True:
-            # horizontal window
-            kernel = np.ones((thickness, max_length), np.int8)
-            dst_horizontal = cv2.filter2D(resource_array, -1, kernel, anchor=(0, 0))[
-                0 : (y_length - thickness + 1), 0 : (x_length - max_length + 1)
+        while True:  # this is a do-while implementation
+            # uses convolution matrices to sum up the region with the length that is currently being evaluated.
+            # region starts with the length of the max dimension and is reduced according to the maximum sum found
+            if not max_length:  # no region found that fits condition
+                return 0, None
+            kernel = np.ones((thickness, max_length), np.int8)  # convolution kernel
+            # fmt: off
+            dst_horizontal = cv2.filter2D(resource_array, -1, kernel, anchor=(0, 0))[  # horizontal convolution
+                0:(y_length - thickness + 1), 0:(x_length - max_length + 1)
             ]
-            dst_vertical = cv2.filter2D(
-                resource_array, -1, kernel.transpose(), anchor=(0, 0), borderType=cv2.BORDER_CONSTANT
-            )[0 : y_length - max_length + 1, 0 : x_length - thickness + 1]
-            area_with_resources_horizontal = np.amax(dst_horizontal)
-            area_with_resources_vertical = np.amax(dst_vertical)
-            if area_with_resources_horizontal < area_with_resources_vertical:
+            dst_vertical = cv2.filter2D(resource_array, -1, kernel.transpose(), anchor=(0, 0))[  # vertical convolution
+                0:(y_length - max_length + 1), 0:(x_length - thickness + 1)
+            ]
+            # fmt: on
+            sum_area_with_resources_horizontal = np.amax(dst_horizontal)  # largest sum of resources found horizontally
+            sum_area_with_resources_vertical = np.amax(dst_vertical)  # largest sum of resources found vertically
+            if sum_area_with_resources_horizontal < sum_area_with_resources_vertical:
                 is_vertically_orientated = True
                 dst = dst_vertical
-                area_with_resources = area_with_resources_vertical
+                sum_area_with_resources = sum_area_with_resources_vertical
             else:
                 is_vertically_orientated = False
                 dst = dst_horizontal
-                area_with_resources = area_with_resources_horizontal
-            if area_with_resources + tolerance < max_length * thickness:
-                max_length = (area_with_resources + tolerance) // thickness
+                sum_area_with_resources = sum_area_with_resources_horizontal
+            if sum_area_with_resources + tolerance < max_length * thickness:  # found area within tolerance?
+                max_length = (sum_area_with_resources + tolerance) // thickness  # choose next iteration of region len
             else:
-                break
-        result = np.where(dst == area_with_resources)
-        max_pos_with_offset = list(zip(result[1], result[0]))[0]
+                break  # do-while abort condition is fulfilled
+        # find left-top corner coordinates of the max region
+        result = np.where(dst == sum_area_with_resources)
+        max_pos_with_offset = list(zip(result[1], result[0]))[0]  # take first
+        # fix offset by the array cut at the start
         max_pos = max_pos_with_offset[0] + init_start_x, max_pos_with_offset[1] + init_start_y
+        # convert to region
         if is_vertically_orientated:
             max_region = max_pos[0], max_pos[1], max_pos[0] + thickness, max_pos[1] + max_length
         else:
             max_region = max_pos[0], max_pos[1], max_pos[0] + max_length, max_pos[1] + thickness
-        return max_length, max_region
-
-    def find_longest_consecutive_line_of_resources_old(
-        self,
-        resource_type: str,
-        thickness: int,
-        tolerance: int,
-        init_start_x: int,
-        init_start_y: int,
-        init_end_x: int,
-        init_end_y: int,
-    ) -> tuple[int, Optional[tuple[int, int, int, int]]]:
-        """Return the largest region of consecutive resources regarding a set width and its length in pixel"""
-        # TODO: this is extremely slow - need a different approach here, there is probably sth. in cv2
-        max_x = init_end_x
-        max_y = init_end_y
-        max_length = 0
-        max_region = None
-        resource_array = self.ore_patch_combined[resource_type].resource_array
-        # approach is a sliding window of static thickness/width and dynamically increasing max length
-        # vertical window
-        for start_x in range(init_start_x, max_x - thickness + 1):
-            end_x = start_x + thickness
-            start_y = init_start_y
-            end_y = start_y + (max_length + 1)  # new length must be one tiles larger than the currently largest one
-            while end_y <= max_y:
-                # count resources in region (start_x, start_y, end_x, end_y) and check if amount is within tolerance
-                if np.sum(resource_array[start_y:end_y, start_x:end_x]) >= thickness * (max_length + 1) - tolerance:
-                    max_length += 1  # new length must be one tile larger than the currently largest one
-                    max_region = (start_x, start_y, end_x, end_y)
-                else:
-                    start_y += 1
-                end_y += 1  # This is equal to "end_y = start_y + (max_length + 1)"
-        # horizontal window
-        for start_y in range(init_start_y, max_y - thickness + 1):
-            end_y = start_y + thickness
-            start_x = init_start_x
-            end_x = start_x + (1 + max_length)  # new length must be one tile larger than the currently largest one
-            while end_x <= max_x:
-                # count resources in region (start_x, start_y, end_x, end_y) and check if amount is within tolerance
-                if np.sum(resource_array[start_y:end_y, start_x:end_x]) >= thickness * (max_length + 1) - tolerance:
-                    max_length = max_length + 1  # new length must be one tiles larger than the currently largest one
-                    max_region = (start_x, start_y, end_x, end_y)
-                else:
-                    start_x += 1
-                end_x += 1  # This is equal to "end_x = start_x + (max_length + 1)"
         return max_length, max_region
 
     @staticmethod
@@ -269,12 +238,9 @@ class MapAnalyser:
             # by adding 1 to the array and interpreting at as a bool, the previous -1 now becomes False, all other True
             # if any of the x values is marked for removal we also want to remove it's y counterpart and vice versa
             # so we use a logical and to combine the array and than duplicate it, so x and y get the same bool value
-            condition = np.array(
-                [
-                    np.logical_and(contour_x + 1, contour_y + 1),
-                ]
-                * 2
-            ).transpose()
+            # fmt: off
+            condition = np.array([np.logical_and(contour_x + 1, contour_y + 1), ] * 2).transpose()
+            # fmt: on
             contour_within_region = np.ndarray.reshape(patch.contour[condition], (-1, 2))  # filter array by condition
             # # if not contour_within_region.size:
             # #     return float('inf')  # fast return if any list of contour points is empty after filtering
@@ -284,6 +250,7 @@ class MapAnalyser:
         )
 
     @staticmethod
+    # currently not in use
     def combine_ore_patches(
         list_of_ore_patches: list[OrePatch],
         resource_type: str,
@@ -316,30 +283,12 @@ class MapAnalyser:
         #   [1 3 5]             [7 4 1]                     [2 4 6]             [8 6 4]
         # We copy the row and transpose just one on the resulting arrays.
         # Now we can run operations on every x with every other x - same for y.
-        contour_x_matrix = np.array(
-            [
-                contour_x,
-            ]
-            * other_contour_x.shape[0]
-        ).transpose()
-        other_contour_x_matrix = np.array(
-            [
-                other_contour_x,
-            ]
-            * contour_x.shape[0]
-        )
-        contour_y_matrix = np.array(
-            [
-                contour_y,
-            ]
-            * other_contour_y.shape[0]
-        ).transpose()
-        other_contour_y_matrix = np.array(
-            [
-                other_contour_y,
-            ]
-            * contour_y.shape[0]
-        )
+        # fmt: off
+        contour_x_matrix = np.array([contour_x, ] * other_contour_x.shape[0]).transpose()
+        other_contour_x_matrix = np.array([other_contour_x, ] * contour_x.shape[0])
+        contour_y_matrix = np.array([contour_y, ] * other_contour_y.shape[0]).transpose()
+        other_contour_y_matrix = np.array([other_contour_y, ] * contour_y.shape[0])
+        # fmt: on
         #   contour_x_matrix    other_contour_x_matrix      contour_y_matrix    other_contour_y_matrix
         #   [[1 1 1]            [[7 4 1]                    [[2 2 2]            [[8 6 4]
         #    [3 3 3]             [7 4 1]                    [4 4 4]              [8 6 4]

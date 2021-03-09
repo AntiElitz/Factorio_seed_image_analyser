@@ -33,8 +33,8 @@ class ImageAnalyserPool:
         self,
         folder_path: str,
         file_extension: str = ".png",
-        resource_colors: dict[str, tuple[int, int, int]] = None,
         tiles_per_pixel: int = 8,
+        resource_colors: dict[str, tuple[int, int, int]] = None,
     ):
         if resource_colors is None:
             resource_colors = {

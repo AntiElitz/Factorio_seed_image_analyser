@@ -26,10 +26,10 @@ class SeedAnalyserUnittest(unittest.TestCase):
             }
             folder_path = "unittest_images/" + str(i)
             file_extension = ".png"
-            tiles_pre_pixel = 8
+            tiles_per_pixel = 8
 
             manager = image_analyser_pool.ImageAnalyserPool(None)
-            manager.add_folder_of_images_to_analyse(folder_path, file_extension, resource_colors, tiles_pre_pixel)
+            manager.add_folder_of_images_to_analyse(folder_path, file_extension, tiles_per_pixel, resource_colors)
             manager.analyse(self.my_analyser_func, False, True)
 
     def test_ore_patch_size(self):
@@ -119,11 +119,11 @@ class SeedAnalyserUnittest(unittest.TestCase):
                 expected_results = [21696, 18432, 21312, 12160, 45248]
                 self.assertEqual(
                     self.analyser[i].count_resources_in_region(
+                        self.resource_type_with_all[i],
                         self.analyser[i].min_x,
                         self.analyser[i].min_y,
                         self.analyser[i].max_x,
-                        self.analyser[i].max_y,
-                        self.resource_type_with_all[i],
+                        self.analyser[i].max_y
                     ),
                     expected_results[i],
                 )
@@ -133,7 +133,7 @@ class SeedAnalyserUnittest(unittest.TestCase):
             with self.subTest(i=i):
                 expected_results = [1216, 704, 128, 0, 2112]
                 self.assertEqual(
-                    self.analyser[i].count_resources_in_region(-96, -40, -16, 40, self.resource_type_with_all[i]),
+                    self.analyser[i].count_resources_in_region(self.resource_type_with_all[i], -96, -40, -16, 40),
                     expected_results[i],
                 )
 
@@ -142,7 +142,7 @@ class SeedAnalyserUnittest(unittest.TestCase):
             with self.subTest(i=i):
                 expected_results = [1216, 704, 128, 0, 2112]
                 self.assertEqual(
-                    self.analyser[i].count_resources_in_region(-90, -33, -22, 33, self.resource_type_with_all[i]),
+                    self.analyser[i].count_resources_in_region(self.resource_type_with_all[i], -90, -33, -22, 33),
                     expected_results[i],
                 )
 
@@ -205,25 +205,40 @@ class SeedAnalyserUnittest(unittest.TestCase):
                 )
                 self.assertEqual(round(result, 2), expected_result)
 
-    # TODO: mypy
-    # TODO: Fix this test
     def test_find_longest_consecutive_line_of_resources(self):
         for i in range(0, 5):
             with self.subTest(i=i):
                 expected_results = [
                     (72, (-168, -264, -160, -192)),
-                    (88, (120, -272, 136, -184)),
+                    (88, (336, -384, 352, -296)),
                     (112, (360, -320, 384, -208)),
-                    (120, (-32, 232, 88, 264)),
-                    (136, (-80, 56, 56, 96)),
+                    (120, (-24, 232, 96, 264)),
+                    (136, (-80, 64, 56, 104)),
                 ]
                 self.assertEqual(
-                    self.analyser[i].find_longest_consecutive_line_of_resources(
+                    self.analyser[i].find_longest_consecutive_line_of_resources_in_region(
                         self.resource_type_with_all[i], 8 * (i + 1), 256 * i
                     ),
                     expected_results[i],
                 )
-    # TODO: add test with region for test_find_longest_consecutive_line_of_resources
+
+    def test_find_longest_consecutive_line_of_resources_in_region(self):
+        for i in range(0, 5):
+            with self.subTest(i=i):
+                expected_results = [
+                    (64, (-40, 8, 24, 16)),
+                    (64, (-48, 0, -32, 64)),
+                    (96, (-64, -128, -40, -32)),
+                    (72, (24, 32, 56, 104)),
+                    (136, (-80, 64, 56, 104)),
+                ]
+                self.assertEqual(
+                    self.analyser[i].find_longest_consecutive_line_of_resources_in_region(
+                        self.resource_type_with_all[i], 8 * (i + 1), 256 * i, -128, -128, 128, 128
+                    ),
+                    expected_results[i],
+                )
+
     def test_get_ore_patches_partially_in_region(self):
         for i in range(0, 5):
             with self.subTest(i=i):

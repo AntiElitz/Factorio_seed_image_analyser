@@ -213,7 +213,7 @@ def init_argparse() -> argparse.ArgumentParser:
         usage="%(prog)s [FOLDER_PATH] [FILE_TYPE] [TILES_PER_PIXEL] [CSV_PATH]",
         description="A tool to analyse preview-images of Factorio seeds.",
     )
-    parser.add_argument("-v", "--version", action="version", version=f"{parser.prog} version 0.1.0")
+    parser.add_argument("-v", "--version", action="version", version=f"{parser.prog} version 0.1.1")
     parser.add_argument("-p", "--folder_path", default="images", help="the path to the image folder")
     parser.add_argument("-ft", "--file_type", default=".png", help="The extension of the files to be processed")
     parser.add_argument(

@@ -31,7 +31,8 @@ class OrePatch:
         if self._contour is None:  # lazy initialization
             """A 2d array that contains various points that define the contour of the ore patch"""
             contours = cv2.findContours(self.resource_array, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-            self._contour = np.reshape(contours[0][0], (contours[0][0].shape[0], contours[0][0].shape[2]))
+            contours_concat = np.concatenate(contours[0], axis=0)
+            self._contour = np.reshape(contours_concat, (contours_concat.shape[0], contours_concat.shape[2]))
         return self._contour
 
     @property

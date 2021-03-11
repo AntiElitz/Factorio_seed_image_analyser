@@ -5,8 +5,9 @@ from typing import Callable, Optional
 
 from tqdm import tqdm
 import csv
-import analyser
 import cv2
+
+from . import analyser
 
 
 def _analyse(

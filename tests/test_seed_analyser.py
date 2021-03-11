@@ -2,20 +2,18 @@ from __future__ import annotations
 
 import unittest
 
-import analyser
-import analyser_factorio_coordinate_wrapper
-import image_analyser_pool
+from factorio_seed_image_analyser import MapAnalyser, MapAnalyserFactorioCoordinateWrapper, ImageAnalyserPool
 
 
 class SeedAnalyserUnittest(unittest.TestCase):
     resource_type_with_all = ["iron", "copper", "coal", "water", "all"]
 
-    def my_analyser_func(self, map_analyser: analyser.MapAnalyser) -> list[str]:
+    def my_analyser_func(self, map_analyser: MapAnalyser) -> list[str]:
         self.analyser.append(map_analyser.map_analyser_coordinate_wrapper)
         return []
 
     def setUp(self):
-        self.analyser: list[analyser_factorio_coordinate_wrapper.MapAnalyserFactorioCoordinateWrapper] = []
+        self.analyser: list[MapAnalyserFactorioCoordinateWrapper] = []
 
         for i in range(0, 5):
             resource_colors = {
@@ -24,11 +22,11 @@ class SeedAnalyserUnittest(unittest.TestCase):
                 "coal": (0, 0, 0),
                 "water": (51, 83, 95),
             }
-            folder_path = "unittest_images/" + str(i)
+            folder_path = "images/" + str(i)
             file_extension = ".png"
             tiles_per_pixel = 8
 
-            manager = image_analyser_pool.ImageAnalyserPool(None)
+            manager = ImageAnalyserPool(None)
             manager.add_folder_of_images_to_analyse(folder_path, file_extension, tiles_per_pixel, resource_colors)
             manager.analyse(self.my_analyser_func, False, True)
 

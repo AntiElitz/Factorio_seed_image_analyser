@@ -8,7 +8,7 @@ from PIL import Image
 import cv2
 import math
 
-import analyser_factorio_coordinate_wrapper
+from . import analyser_factorio_coordinate_wrapper
 
 
 class OrePatch:

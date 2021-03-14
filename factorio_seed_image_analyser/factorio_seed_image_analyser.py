@@ -1,7 +1,8 @@
 from typing import Optional
 import argparse
-import image_analyser_pool
-from analyser import MapAnalyser
+
+from . import image_analyser_pool
+from .analyser import MapAnalyser
 
 
 def my_analyser_function(analyser_px: MapAnalyser) -> Optional[list[str]]:
